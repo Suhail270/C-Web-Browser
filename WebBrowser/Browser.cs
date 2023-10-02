@@ -28,11 +28,14 @@ public class WebBrowserApp : Window
     private Button historyButton;
     private Button backButton;
     private Button forwardButton;
+    private Button favouritesButton;
     private string localHistoryBack = "back.txt";
     private string localHistoryForward = "forward.txt";
+    TextIter startIter;
+    TextIter endIter;
     public WebBrowserApp() : base("F20SC - CW1")
     {
-        SetDefaultSize(800, 600);
+        SetDefaultSize(900, 700);
         SetPosition(WindowPosition.Center);
 
         var mainVBox = new VBox();
@@ -45,6 +48,7 @@ public class WebBrowserApp : Window
         homeButton = new Button("Home");
         backButton = new Button("Back");
         forwardButton = new Button("Forward");
+        favouritesButton = new Button("Favourites");
         contentTextView = new TextView();
         scrolledWindow = new ScrolledWindow();
         titleLabel = new Label();
@@ -55,6 +59,7 @@ public class WebBrowserApp : Window
         homeButton.Clicked += HomeButton_Clicked;
         backButton.Clicked += BackButton_Clicked;
         forwardButton.Clicked += ForwardButton_Clicked;
+        favouritesButton.Clicked += FavouritesButton_Clicked;
 
         mainVBox.PackStart(mainHBox, false, false, 0);
         mainVBox.PackStart(titleHBox, false, false, 0);
@@ -64,7 +69,8 @@ public class WebBrowserApp : Window
         mainHBox.PackStart(addressEntry, false, false, 10);
         mainHBox.PackStart(navigateButton, false, false, 10);
         mainHBox.PackStart(homeButton, false, false, 10);
-        mainHBox.PackStart(historyButton, false, false, 10); // Add the history button to the mainHBox
+        mainHBox.PackStart(historyButton, false, false, 10);
+        mainHBox.PackStart(favouritesButton, false, false, 10);
 
         titleHBox.PackStart(titleLabel, false, false, 10);
 
@@ -83,6 +89,92 @@ public class WebBrowserApp : Window
         contentTextView.Buffer.Text = "Enter a URL and click 'Go' to view HTML code.";
     }
 
+    private async void FavouritesButton_Clicked(object sender, EventArgs e)
+    {
+        try
+        {
+            string[] favourites = await ReadFavouritesAsync();
+
+            if (favourites.Length > 0)
+            {
+                string favouritesText = string.Join("\n", favourites);
+                contentTextView.Buffer.Text = favouritesText;
+                titleLabel.Text = "Favourites";
+
+                var hyperlinkTexts = new Dictionary<TextTag, string>();
+                
+                for (int i = 0; i < contentTextView.Buffer.LineCount; i++)
+                    {
+                        startIter = contentTextView.Buffer.GetIterAtLine(i);
+                        endIter = contentTextView.Buffer.GetIterAtLine(i + 1);
+
+                        string lineText = contentTextView.Buffer.GetText(startIter, endIter, false);
+                        string line = "";
+                        
+                        for(int j = 0; j < lineText.Length; j++){
+                            if (lineText[j]!='\n'){
+                                line += lineText[j];
+                            }
+                        }
+
+                        // Create a unique TextTag for each hyperlink using the line text
+                        var hyperlinkTag = new TextTag(line);
+
+                        hyperlinkTag.Underline = Pango.Underline.Single;
+
+                        hyperlinkTexts.Add(hyperlinkTag, line);
+
+                        contentTextView.Buffer.ApplyTag(hyperlinkTag, startIter, endIter);
+                    }
+                
+                contentTextView.ButtonPressEvent += (sender, args) =>
+                {
+                    if (args.Event.Type == Gdk.EventType.ButtonPress && args.Event.Button == 1)
+                    {
+                        var location = contentTextView.WindowToBufferCoords(TextWindowType.Text, (int)args.Event.X, (int)args.Event.Y);
+
+                        TextIter iter;
+                        if (contentTextView.Buffer.GetIterAtLocationOffset(out iter, location, 0))
+                        {
+                            TextTag[] tags = iter.Tags;
+                            foreach (TextTag tag in tags)
+                            {
+                                // Access the text associated with the clicked hyperlink
+                                if (hyperlinkTexts.ContainsKey(tag))
+                                {
+                                    string hyperlinkText = hyperlinkTexts[tag];
+                                    Console.WriteLine("Hyperlink clicked: " + hyperlinkText);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+            };
+            }
+            else
+            {
+                contentTextView.Buffer.Text = "Favourites is empty.";
+                titleLabel.Text = string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            contentTextView.Buffer.Text = $"Error: {ex.Message}";
+            titleLabel.Text = string.Empty;
+        }
+    }
+
+    private async Task<string[]> ReadFavouritesAsync()
+    {
+        if (File.Exists(favouritesPath))
+        {
+            return await File.ReadAllLinesAsync(favouritesPath);
+        }
+
+        return new string[0];
+    }
+    
      private void BackButton_Clicked(object sender, EventArgs e) //Need to update previous and next lists in the displaywebcontent function
      {
         string[] localSession = File.ReadAllLines(localHistoryBack);
@@ -147,7 +239,7 @@ public class WebBrowserApp : Window
         }
 
         return new string[0];
-}
+    }
 
 
     private void ShowMessage(string message)
