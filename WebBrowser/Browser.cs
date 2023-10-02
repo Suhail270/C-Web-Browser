@@ -4,6 +4,7 @@ using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
+using System.Collections.Generic;
 
 public class WebBrowserApp : Window
 {
@@ -13,14 +14,22 @@ public class WebBrowserApp : Window
     private TextView contentTextView;
     private Label titleLabel;
     private ScrolledWindow scrolledWindow;
+    private string displayUrl;
     private string currentUrl;
+    private List<string> prevUrl = new List<string>();
+    private string prevDisplay;
+    private List<string> nextUrl = new List<string>();
+    private string nextDisplay;
     private string homePath = "homeURL.txt";
     private string homePageUrl;
     private string favouritesPath = "favourites.txt";
     private string historyPath = "history.txt";
     private bool startUp = true;
-    private Button historyButton; //TODO
-
+    private Button historyButton;
+    private Button backButton;
+    private Button forwardButton;
+    private string localHistoryBack = "back.txt";
+    private string localHistoryForward = "forward.txt";
     public WebBrowserApp() : base("F20SC - CW1")
     {
         SetDefaultSize(800, 600);
@@ -34,19 +43,28 @@ public class WebBrowserApp : Window
         addressEntry.WidthChars = 50;
         navigateButton = new Button("Go");
         homeButton = new Button("Home");
+        backButton = new Button("Back");
+        forwardButton = new Button("Forward");
         contentTextView = new TextView();
         scrolledWindow = new ScrolledWindow();
         titleLabel = new Label();
-
+        historyButton = new Button("History"); // Create the history button
+        
+        historyButton.Clicked += HistoryButton_ClickedAsync; // Attach an event handler
         navigateButton.Clicked += NavigateButton_Clicked;
         homeButton.Clicked += HomeButton_Clicked;
+        backButton.Clicked += BackButton_Clicked;
+        forwardButton.Clicked += ForwardButton_Clicked;
 
         mainVBox.PackStart(mainHBox, false, false, 0);
         mainVBox.PackStart(titleHBox, false, false, 0);
 
-        mainHBox.PackStart(addressEntry, false, false, 0);
+        mainHBox.PackStart(backButton, false, false, 0);
+        mainHBox.PackStart(forwardButton, false, false, 10);
+        mainHBox.PackStart(addressEntry, false, false, 10);
         mainHBox.PackStart(navigateButton, false, false, 10);
         mainHBox.PackStart(homeButton, false, false, 10);
+        mainHBox.PackStart(historyButton, false, false, 10); // Add the history button to the mainHBox
 
         titleHBox.PackStart(titleLabel, false, false, 10);
 
@@ -65,6 +83,73 @@ public class WebBrowserApp : Window
         contentTextView.Buffer.Text = "Enter a URL and click 'Go' to view HTML code.";
     }
 
+     private void BackButton_Clicked(object sender, EventArgs e) //Need to update previous and next lists in the displaywebcontent function
+     {
+        string[] localSession = File.ReadAllLines(localHistoryBack);
+
+        if (localSession.Length==0){
+            ShowMessage("No previous URL.");
+        }
+        else{
+            string prevURL = localSession.Last();
+            string[] updatedSession = localSession.Take(localSession.Length - 1).ToArray();
+            File.WriteAllLines(localHistoryBack, updatedSession);
+            DisplayWebContent(prevURL, "back");
+        }
+    }
+
+    private void ForwardButton_Clicked(object sender, EventArgs e)
+     {
+
+        string[] localSessionForward = File.ReadAllLines(localHistoryForward);
+
+        if (localSessionForward.Length==0){
+            ShowMessage("No next URL.");
+        }
+        else{
+            string nextURL = localSessionForward.Last();
+            string[] updatedSessionForward = localSessionForward.Take(localSessionForward.Length - 1).ToArray();
+            File.WriteAllLines(localHistoryForward, updatedSessionForward);
+            DisplayWebContent(nextURL, "next");
+        }
+    }
+
+    private async void HistoryButton_ClickedAsync(object sender, EventArgs e)
+    {
+        try
+        {
+            string[] history = await ReadHistoryAsync();
+
+            if (history.Length > 0)
+            {
+                string historyText = string.Join("\n", history);
+                contentTextView.Buffer.Text = historyText;
+                titleLabel.Text = "History";
+            }
+            else
+            {
+                contentTextView.Buffer.Text = "History is empty.";
+                titleLabel.Text = string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            contentTextView.Buffer.Text = $"Error: {ex.Message}";
+            titleLabel.Text = string.Empty;
+        }
+    }
+
+    private async Task<string[]> ReadHistoryAsync()
+    {
+        if (File.Exists(historyPath))
+        {
+            return await File.ReadAllLinesAsync(historyPath);
+        }
+
+        return new string[0];
+}
+
+
     private void ShowMessage(string message)
 {
     GLib.Idle.Add(() =>
@@ -76,7 +161,6 @@ public class WebBrowserApp : Window
             ButtonsType.Ok,
             message
         );
-
         messageDialog.Run();
         messageDialog.Destroy();
         return false;
@@ -87,10 +171,8 @@ public class WebBrowserApp : Window
     {
         LoadHomePage();
     }
+    private async void DisplayWebContent(string url, string action){
 
-    private async void NavigateButton_Clicked(object sender, EventArgs e)
-    {
-        string url = addressEntry.Text;
         if (!Uri.IsWellFormedUriString(url, UriKind.Absolute))
         {
             ShowMessage("Invalid URL.");
@@ -99,7 +181,8 @@ public class WebBrowserApp : Window
 
         try
         {
-            string content = await FetchWebContentAsync(url);
+            string content = await FetchWebContentAsync(url, action);
+            addressEntry.Text = url;
 
             // Display the HTML code in the TextView
             contentTextView.Buffer.Text = content;
@@ -114,17 +197,23 @@ public class WebBrowserApp : Window
                 titleLabel.Text += $" - Title: {title}";
             }
 
-            // Store the current URL
-            currentUrl = url;
         }
         catch (Exception ex)
         {
             contentTextView.Buffer.Text = $"Error: {ex.Message}";
             titleLabel.Text = string.Empty;
         }
+
     }
 
-    private async Task<string> FetchWebContentAsync(string url)
+    private async void NavigateButton_Clicked(object sender, EventArgs e)
+    {
+
+        displayUrl = addressEntry.Text;
+        DisplayWebContent(displayUrl, "nav");
+    }
+
+    private async Task<string> FetchWebContentAsync(string url, string action)
     {
         try
         {
@@ -134,14 +223,30 @@ public class WebBrowserApp : Window
 
                 if (response.IsSuccessStatusCode)
                 {   
-                    currentUrl = url;
+                    if (File.Exists(localHistoryBack) && (action=="next" || action=="nav"))
+                    {
+                        File.AppendAllText(localHistoryBack, currentUrl+"\n");
+                    }
+
+                    else if (File.Exists(localHistoryForward) && action=="back"){
+                        File.AppendAllText(localHistoryForward, currentUrl+"\n");
+                    }
+
+                    else if (action=="home"){
+                        if(!startUp){
+                            File.AppendAllText(localHistoryBack, currentUrl+"\n");
+                        }
+                    }
 
                     if(!startUp){
+                        currentUrl = url;
                         await UpdateHistoryAsync();
                     }
                     else{
                         startUp = false;
+                        currentUrl = url;
                     }
+
                     return await response.Content.ReadAsStringAsync();
                 }
                 else
@@ -168,24 +273,7 @@ public class WebBrowserApp : Window
                 return;
             }
 
-            string content = await FetchWebContentAsync(homePageUrl);
-
-            // Display the HTML code in the TextView
-            contentTextView.Buffer.Text = content;
-
-            // Display the HTTP response status code
-            string statusCode = $"HTTP Status Code: {currentUrl}";
-            titleLabel.Text = statusCode;
-
-            // Parse the title of the web page and display it
-            string title = GetWebPageTitle(content);
-            if (!string.IsNullOrWhiteSpace(title))
-            {
-                titleLabel.Text += $" - Title: {title}";
-            }
-
-            // Store the current URL
-            currentUrl = homePageUrl;
+            DisplayWebContent(homePageUrl, "home");
         }
         catch (Exception ex)
         {
@@ -233,6 +321,8 @@ public class WebBrowserApp : Window
     {
         Application.Init();
         var app = new WebBrowserApp();
+        File.WriteAllText(app.localHistoryBack, "");
+        File.WriteAllText(app.localHistoryForward, "");
         app.LoadHomePage();
         app.ShowAll();
         Application.Run();
