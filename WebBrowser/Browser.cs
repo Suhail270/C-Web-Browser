@@ -90,80 +90,91 @@ public class WebBrowserApp : Window
     }
 
     private async void FavouritesButton_Clicked(object sender, EventArgs e)
+{
+    try
     {
-        try
+        string[] favourites = await ReadFavouritesAsync();
+
+        if (favourites.Length > 0)
         {
-            string[] favourites = await ReadFavouritesAsync();
+            string favouritesText = string.Join("\n", favourites);
+            contentTextView.Buffer.Text = favouritesText;
+            titleLabel.Text = "Favourites";
 
-            if (favourites.Length > 0)
+            var hyperlinkTag = contentTextView.Buffer.TagTable.Lookup("hyperlink");
+
+            // If it doesn't exist, create a new "hyperlink" tag
+            if (hyperlinkTag == null)
             {
-                string favouritesText = string.Join("\n", favourites);
-                contentTextView.Buffer.Text = favouritesText;
-                titleLabel.Text = "Favourites";
+                hyperlinkTag = new TextTag("hyperlink");
+                hyperlinkTag.Underline = Pango.Underline.Single;
+                contentTextView.Buffer.TagTable.Add(hyperlinkTag);
+            }
 
-                var hyperlinkTexts = new Dictionary<TextTag, string>();
-                
-                for (int i = 0; i < contentTextView.Buffer.LineCount; i++)
-                    {
-                        startIter = contentTextView.Buffer.GetIterAtLine(i);
-                        endIter = contentTextView.Buffer.GetIterAtLine(i + 1);
 
-                        string lineText = contentTextView.Buffer.GetText(startIter, endIter, false);
-                        string line = "";
-                        
-                        for(int j = 0; j < lineText.Length; j++){
-                            if (lineText[j]!='\n'){
-                                line += lineText[j];
-                            }
-                        }
+            hyperlinkTag.Underline = Pango.Underline.Single;
+            contentTextView.Buffer.TagTable.Add(hyperlinkTag);
 
-                        // Create a unique TextTag for each hyperlink using the line text
-                        var hyperlinkTag = new TextTag(line);
+            // Apply the hyperlink tag to specific text portions
+            var buffer = contentTextView.Buffer;
+            int startOffset = 0;
+            foreach (var line in favourites)
+            {
+                int endOffset = startOffset + line.Length;
+                buffer.ApplyTag(hyperlinkTag, buffer.GetIterAtOffset(startOffset), buffer.GetIterAtOffset(endOffset));
+                startOffset = endOffset + 1;
+            }
 
-                        hyperlinkTag.Underline = Pango.Underline.Single;
-
-                        hyperlinkTexts.Add(hyperlinkTag, line);
-
-                        contentTextView.Buffer.ApplyTag(hyperlinkTag, startIter, endIter);
-                    }
-                
-                contentTextView.ButtonPressEvent += (sender, args) =>
+            // Handle button press events
+            contentTextView.ButtonPressEvent += (s, args) =>
+            {
+                if (args.Event.Type == Gdk.EventType.ButtonPress && args.Event.Button == 1)
                 {
-                    if (args.Event.Type == Gdk.EventType.ButtonPress && args.Event.Button == 1)
+                    TextIter iter;
+                    if (contentTextView.GetIterAtLocation(out iter, (int)args.Event.X, (int)args.Event.Y))
                     {
-                        var location = contentTextView.WindowToBufferCoords(TextWindowType.Text, (int)args.Event.X, (int)args.Event.Y);
-
-                        TextIter iter;
-                        if (contentTextView.Buffer.GetIterAtLocationOffset(out iter, location, 0))
+                        TextTag[] tags = iter.Tags;
+                        foreach (TextTag tag in tags)
                         {
-                            TextTag[] tags = iter.Tags;
-                            foreach (TextTag tag in tags)
+                            if (tag.Name == "hyperlink")
                             {
-                                // Access the text associated with the clicked hyperlink
-                                if (hyperlinkTexts.ContainsKey(tag))
+                                // Handle the hyperlink click
+                                int start = iter.Offset;
+                                int end = iter.Offset;
+
+                                // Find the start and end of the clicked link
+                                while (start >= 0 && buffer.GetIterAtOffset(start).HasTag(tag))
                                 {
-                                    string hyperlinkText = hyperlinkTexts[tag];
-                                    Console.WriteLine("Hyperlink clicked: " + hyperlinkText);
-                                    break;
+                                    start--;
                                 }
+
+                                while (end < buffer.Text.Length && buffer.GetIterAtOffset(end).HasTag(tag))
+                                {
+                                    end++;
+                                }
+
+                                // Extract the URL from the clicked link
+                                string hyperlinkText = buffer.GetText(buffer.GetIterAtOffset(start + 1), buffer.GetIterAtOffset(end), false);
+                                DisplayWebContent(hyperlinkText, "nav");
                             }
                         }
                     }
-
+                }
             };
-            }
-            else
-            {
-                contentTextView.Buffer.Text = "Favourites is empty.";
-                titleLabel.Text = string.Empty;
-            }
         }
-        catch (Exception ex)
+        else
         {
-            contentTextView.Buffer.Text = $"Error: {ex.Message}";
+            contentTextView.Buffer.Text = "Favourites is empty.";
             titleLabel.Text = string.Empty;
         }
     }
+    catch (Exception ex)
+    {
+        contentTextView.Buffer.Text = $"Error: {ex.Message}";
+        titleLabel.Text = string.Empty;
+    }
+}
+
 
     private async Task<string[]> ReadFavouritesAsync()
     {
