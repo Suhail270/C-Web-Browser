@@ -33,6 +33,13 @@ public class WebBrowserApp : Window
     private string localHistoryForward = "forward.txt";
     TextIter startIter;
     TextIter endIter;
+    private Grid buttonsGrid;
+    private Button addButton;
+    private Button editButton;
+    private Button deleteButton;
+    private bool isFavoritesPage;
+
+    
     public WebBrowserApp() : base("F20SC - CW1")
     {
         SetDefaultSize(900, 700);
@@ -78,9 +85,42 @@ public class WebBrowserApp : Window
         contentTextView.Buffer = textBuffer;
         contentTextView.Editable = false;
         contentTextView.WrapMode = WrapMode.WordChar;
-
         scrolledWindow.Add(contentTextView);
-        mainVBox.PackStart(scrolledWindow, true, true, 5);
+        mainVBox.PackStart(scrolledWindow, true, true, 0);
+        
+
+        // Create a grid for the buttons
+buttonsGrid = new Grid();
+buttonsGrid.ColumnSpacing = 5;
+buttonsGrid.RowSpacing = 5;
+
+// Create buttons for add, edit, and delete
+addButton = new Button("Add Favorite");
+editButton = new Button("Edit Favorite");
+deleteButton = new Button("Delete Favorite");
+
+// Attach buttons to the grid
+buttonsGrid.Attach(addButton, 0, 0, 1, 1);
+buttonsGrid.Attach(editButton, 1, 0, 1, 1);
+buttonsGrid.Attach(deleteButton, 2, 0, 1, 1);
+
+// Set their visibility to false initially
+addButton.Visible = false;
+editButton.Visible = false;
+deleteButton.Visible = false;
+
+var alignment = new Alignment(0.5f, 0.0f, 0.0f, 0.0f);
+alignment.Add(buttonsGrid);
+mainVBox.PackStart(alignment, false, false, 0);
+// Handle button click events (add your logic)
+// addButton.Clicked += AddButton_Clicked;
+// editButton.Clicked += EditButton_Clicked;
+// deleteButton.Clicked += DeleteButton_Clicked;
+
+// Add the buttons grid to the bottom right corner
+scrolledWindow.AddWithViewport(contentTextView);
+mainVBox.PackStart(buttonsGrid, false, false, 0);
+
 
         Add(mainVBox);
 
@@ -89,10 +129,25 @@ public class WebBrowserApp : Window
         contentTextView.Buffer.Text = "Enter a URL and click 'Go' to view HTML code.";
     }
 
+    private async void HideButtons(){
+        isFavoritesPage = false; // Set the flag to false when leaving the favorites page
+
+        // Hide the add/edit/delete buttons
+        addButton.Visible = false;
+        editButton.Visible = false;
+        deleteButton.Visible = false;
+    }
+
     private async void FavouritesButton_Clicked(object sender, EventArgs e)
 {
     try
     {
+        isFavoritesPage = true; // Set the flag to true when on the favorites page
+
+        // Show the add/edit/delete buttons
+        addButton.Visible = true;
+        editButton.Visible = true;
+        deleteButton.Visible = true;
         string[] favourites = await ReadFavouritesAsync();
 
         if (favourites.Length > 0)
@@ -188,6 +243,7 @@ public class WebBrowserApp : Window
     
      private void BackButton_Clicked(object sender, EventArgs e) //Need to update previous and next lists in the displaywebcontent function
      {
+        HideButtons();
         string[] localSession = File.ReadAllLines(localHistoryBack);
 
         if (localSession.Length==0){
@@ -203,7 +259,7 @@ public class WebBrowserApp : Window
 
     private void ForwardButton_Clicked(object sender, EventArgs e)
      {
-
+        HideButtons();
         string[] localSessionForward = File.ReadAllLines(localHistoryForward);
 
         if (localSessionForward.Length==0){
@@ -221,6 +277,7 @@ public class WebBrowserApp : Window
     {
         try
         {
+            HideButtons();
             string[] history = await ReadHistoryAsync();
 
             if (history.Length > 0)
@@ -272,9 +329,12 @@ public class WebBrowserApp : Window
 
     private void HomeButton_Clicked(object sender, EventArgs e)
     {
+        HideButtons();
         LoadHomePage();
     }
     private async void DisplayWebContent(string url, string action){
+
+        HideButtons();
 
         if (!Uri.IsWellFormedUriString(url, UriKind.Absolute))
         {
@@ -368,6 +428,7 @@ public class WebBrowserApp : Window
     {
         try
         {
+            
             homePageUrl = await ReadHomePageAsync();
 
             if (string.IsNullOrWhiteSpace(homePageUrl))
