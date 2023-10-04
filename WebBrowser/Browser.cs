@@ -38,6 +38,16 @@ public class WebBrowserApp : Window
     private Button editButton;
     private Button deleteButton;
     private bool isFavoritesPage;
+    private Entry favouritesEntry;
+    private Button okButton;
+    private string[] favourites;
+    private string selectedText;
+    private bool editMode;
+    private int favouritesIndex;
+    private bool valid;
+    private Button confirmButton;
+    private Button cancelButton;
+    private List<string> deleteFavouritesList;
 
     
     public WebBrowserApp() : base("F20SC - CW1")
@@ -53,8 +63,8 @@ public class WebBrowserApp : Window
         addressEntry.WidthChars = 50;
         navigateButton = new Button("Go");
         homeButton = new Button("Home");
-        backButton = new Button("Back");
-        forwardButton = new Button("Forward");
+        backButton = new Button("<");
+        forwardButton = new Button(">");
         favouritesButton = new Button("Favourites");
         contentTextView = new TextView();
         scrolledWindow = new ScrolledWindow();
@@ -70,6 +80,14 @@ public class WebBrowserApp : Window
 
         mainVBox.PackStart(mainHBox, false, false, 0);
         mainVBox.PackStart(titleHBox, false, false, 0);
+        
+        favouritesEntry = new Entry();
+        favouritesEntry.Visible = false;
+        favouritesEntry.WidthChars = 50;
+        mainVBox.PackStart(favouritesEntry, false, false, 10);
+        
+        okButton = new Button("OK");
+        mainVBox.PackStart(okButton, false, false, 10);
 
         mainHBox.PackStart(backButton, false, false, 0);
         mainHBox.PackStart(forwardButton, false, false, 10);
@@ -90,36 +108,39 @@ public class WebBrowserApp : Window
         
 
         // Create a grid for the buttons
-buttonsGrid = new Grid();
-buttonsGrid.ColumnSpacing = 5;
-buttonsGrid.RowSpacing = 5;
+        buttonsGrid = new Grid();
+        buttonsGrid.ColumnSpacing = 5;
+        buttonsGrid.RowSpacing = 5;
 
-// Create buttons for add, edit, and delete
-addButton = new Button("Add Favorite");
-editButton = new Button("Edit Favorite");
-deleteButton = new Button("Delete Favorite");
+        // Create buttons for add, edit, and delete
+        addButton = new Button("Add Favorite");
+        editButton = new Button("Edit Favorite");
+        deleteButton = new Button("Delete Favorite");
 
-// Attach buttons to the grid
-buttonsGrid.Attach(addButton, 0, 0, 1, 1);
-buttonsGrid.Attach(editButton, 1, 0, 1, 1);
-buttonsGrid.Attach(deleteButton, 2, 0, 1, 1);
+        // Attach buttons to the grid
+        buttonsGrid.Attach(addButton, 0, 0, 1, 1);
+        buttonsGrid.Attach(editButton, 1, 0, 1, 1);
+        buttonsGrid.Attach(deleteButton, 2, 0, 1, 1);
 
-// Set their visibility to false initially
-addButton.Visible = false;
-editButton.Visible = false;
-deleteButton.Visible = false;
+        // Set their visibility to false initially
+        addButton.Visible = false;
+        editButton.Visible = false;
+        deleteButton.Visible = false;
 
-var alignment = new Alignment(0.5f, 0.0f, 0.0f, 0.0f);
-alignment.Add(buttonsGrid);
-mainVBox.PackStart(alignment, false, false, 0);
-// Handle button click events (add your logic)
-// addButton.Clicked += AddButton_Clicked;
-// editButton.Clicked += EditButton_Clicked;
-// deleteButton.Clicked += DeleteButton_Clicked;
+        // favouritesEntry.Visible = false;
+        okButton.Visible = false;
 
-// Add the buttons grid to the bottom right corner
-scrolledWindow.AddWithViewport(contentTextView);
-mainVBox.PackStart(buttonsGrid, false, false, 0);
+        var alignment = new Alignment(0.5f, 0.0f, 0.0f, 0.0f);
+        alignment.Add(buttonsGrid);
+        mainVBox.PackStart(alignment, false, false, 0);
+        // Handle button click events (add your logic)
+        addButton.Clicked += AddButton_Clicked;
+        // editButton.Clicked += EditButton_Clicked;
+        // deleteButton.Clicked += DeleteButton_Clicked;
+
+        // Add the buttons grid to the bottom right corner
+        scrolledWindow.AddWithViewport(contentTextView);
+        mainVBox.PackStart(buttonsGrid, false, false, 0);
 
 
         Add(mainVBox);
@@ -136,8 +157,43 @@ mainVBox.PackStart(buttonsGrid, false, false, 0);
         addButton.Visible = false;
         editButton.Visible = false;
         deleteButton.Visible = false;
+        favouritesEntry.Visible = false;
+        okButton.Visible = false;
     }
 
+    private async void AddButton_Clicked(object sender, EventArgs e){
+        favourites = await File.ReadAllLinesAsync(favouritesPath);
+
+        if (!string.IsNullOrWhiteSpace(favouritesEntry.Text) && Uri.IsWellFormedUriString(favouritesEntry.Text, UriKind.Absolute)){
+            
+            if (favourites.Any(f => f == favouritesEntry.Text))
+            {
+                ShowMessage("This URL already exists in favorites.");
+                return;
+            }
+        
+        File.AppendAllText(favouritesPath, favouritesEntry.Text+"\n");
+        }
+
+        }
+
+    private async Task<bool> Validation(string url){
+        try
+        {
+            if(Uri.IsWellFormedUriString(url, UriKind.Absolute)){
+                using (HttpClient client = new HttpClient())
+                {
+                    HttpResponseMessage response = await client.GetAsync(url);
+                    return true;
+                }
+            }
+            return false;
+        }
+        catch (HttpRequestException ex)
+        {
+            return false;
+        }
+    }
     private async void FavouritesButton_Clicked(object sender, EventArgs e)
 {
     try
@@ -148,7 +204,7 @@ mainVBox.PackStart(buttonsGrid, false, false, 0);
         addButton.Visible = true;
         editButton.Visible = true;
         deleteButton.Visible = true;
-        string[] favourites = await ReadFavouritesAsync();
+        favourites = await ReadFavouritesAsync();
 
         if (favourites.Length > 0)
         {
@@ -166,7 +222,6 @@ mainVBox.PackStart(buttonsGrid, false, false, 0);
                 contentTextView.Buffer.TagTable.Add(hyperlinkTag);
             }
 
-
             hyperlinkTag.Underline = Pango.Underline.Single;
             contentTextView.Buffer.TagTable.Add(hyperlinkTag);
 
@@ -179,6 +234,157 @@ mainVBox.PackStart(buttonsGrid, false, false, 0);
                 buffer.ApplyTag(hyperlinkTag, buffer.GetIterAtOffset(startOffset), buffer.GetIterAtOffset(endOffset));
                 startOffset = endOffset + 1;
             }
+
+            addButton.Clicked += (sender, args) =>
+        {
+            
+            // Show the Entry widget to take user input
+            favouritesEntry.Visible = true;
+            okButton.Visible = true;
+
+            // favourites = File.ReadAllLines(favouritesPath);
+
+            okButton.Clicked += (okSender, okArgs) =>
+            {
+
+                if (string.IsNullOrWhiteSpace(favouritesEntry.Text)){
+                    // ShowMessage("Entry bar is empty.");
+                }
+
+                else if (!Uri.IsWellFormedUriString(favouritesEntry.Text, UriKind.Absolute)){
+                    
+                    ShowMessage("Invalid URL.");
+                    favouritesEntry.Text = string.Empty;
+                }
+                
+                else{
+                    if (favourites.Any(f => f == favouritesEntry.Text))
+                    {
+                        ShowMessage("This URL already exists in favorites.");
+                        return;
+                    }
+                
+                    File.AppendAllText(favouritesPath, favouritesEntry.Text+"\n");
+                    favouritesEntry.Visible = false;
+                    okButton.Visible = false;
+                    favouritesEntry.Text = string.Empty;
+                    FavouritesButton_Clicked(sender, e);
+                }
+                };
+        };
+
+        editButton.Clicked += (s, args) =>
+        {
+            editMode = true;
+            favouritesEntry.Text = string.Empty;
+            favouritesEntry.Visible = true;
+            okButton.Visible = true;
+            favourites = File.ReadAllLines(favouritesPath);
+            ShowMessage("Please select the URL to edit.");
+            
+            // if (string.IsNullOrWhiteSpace(selectedText))
+            // {
+            //     // ShowMessage("Please select a URL to edit.");
+            // }
+            // else
+            // {
+                // Console.WriteLine("TEXT: ", selectedText);
+                favouritesEntry.Text = selectedText; // Populate the Entry with the selected hyperlink
+
+                okButton.Clicked += async (okSender, okArgs) =>
+                {
+                    if (!string.IsNullOrWhiteSpace(favouritesEntry.Text))
+                    {
+                        // ShowMessage("Entry bar is empty.");
+                        valid = await Validation(favouritesEntry.Text);
+                    
+                        if (!valid)
+                        {
+                            ShowMessage("Invalid URL.");
+                            favouritesEntry.Text = string.Empty;
+                            // favouritesEntry.Text = string.Empty;
+                        }
+                        else
+                        {
+                            // Find and update the selected hyperlink in the 'favourites' array
+                            
+                            // if (selectedIndex >= 0)
+                            // {
+                                favourites[favouritesIndex] = favouritesEntry.Text;
+                                File.WriteAllLines(favouritesPath, favourites);
+                                // favouritesEntry.Text = string.Empty;
+                                favouritesEntry.Visible = false;
+                                okButton.Visible = false;
+                                editMode = false;
+                                FavouritesButton_Clicked(s, args);
+                            // }
+                        }
+                    }
+                    
+                };
+            // }
+            favouritesEntry.Text = string.Empty;
+        };
+
+        deleteButton.Clicked += (s, args) =>
+        {
+            editMode = true;
+            favouritesEntry.Text = string.Empty;
+            favouritesEntry.Visible = true;
+            okButton.Visible = true;
+            // favourites = File.ReadAllLines(favouritesPath);
+            ShowMessage("Please select the URL to delete.");
+            
+            // if (string.IsNullOrWhiteSpace(selectedText))
+            // {
+            //     // ShowMessage("Please select a URL to edit.");
+            // }
+            // else
+            // {
+                // Console.WriteLine("TEXT: ", selectedText);
+                favouritesEntry.Text = selectedText; // Populate the Entry with the selected hyperlink
+
+                okButton.Clicked += async (okSender, okArgs) =>
+                {
+                    using (var dialog = new MessageDialog(
+                        this,
+                        DialogFlags.Modal,
+                        MessageType.Question,
+                        ButtonsType.YesNo,
+                        $"Are you sure you want to delete {selectedText} from your favourites list?")
+                    )
+                    {
+                        // Configure the dialog
+                        dialog.Title = "Delete URL";
+                        dialog.WindowPosition = WindowPosition.Center;
+
+                        // Show the dialog and get the response
+                        ResponseType response = (ResponseType)dialog.Run();
+
+                        // Handle the dialog response
+                        if (response == ResponseType.Yes)
+                        {
+                            // User clicked "OK," implement your edit logic here
+                            // Console.WriteLine("OK clicked");
+                            // favourites.RemoveAt(favouritesIndex);
+                            deleteFavouritesList = new List<string>(favourites);
+                            deleteFavouritesList.RemoveAt(favouritesIndex);
+                            favourites = deleteFavouritesList.ToArray();
+                            File.WriteAllLines(favouritesPath, favourites);
+                            // favouritesEntry.Text = string.Empty;
+                            favouritesEntry.Visible = false;
+                            okButton.Visible = false;
+                            editMode = false;
+                            dialog.Destroy();
+                            FavouritesButton_Clicked(s, args);
+                        }
+                        else{
+                            dialog.Destroy();
+                        }  
+                };
+                favouritesEntry.Text = string.Empty;
+            };
+        };
 
             // Handle button press events
             contentTextView.ButtonPressEvent += (s, args) =>
@@ -209,8 +415,15 @@ mainVBox.PackStart(buttonsGrid, false, false, 0);
                                 }
 
                                 // Extract the URL from the clicked link
-                                string hyperlinkText = buffer.GetText(buffer.GetIterAtOffset(start + 1), buffer.GetIterAtOffset(end), false);
-                                DisplayWebContent(hyperlinkText, "nav");
+                                selectedText = buffer.GetText(buffer.GetIterAtOffset(start + 1), buffer.GetIterAtOffset(end), false);
+                                
+                                if(editMode==false){
+                                DisplayWebContent(selectedText, "nav");
+                                }
+                                else{
+                                    favouritesEntry.Text = selectedText;
+                                    favouritesIndex = Array.IndexOf(favourites, selectedText);
+                                }
                             }
                         }
                     }
@@ -229,7 +442,6 @@ mainVBox.PackStart(buttonsGrid, false, false, 0);
         titleLabel.Text = string.Empty;
     }
 }
-
 
     private async Task<string[]> ReadFavouritesAsync()
     {
@@ -257,10 +469,10 @@ mainVBox.PackStart(buttonsGrid, false, false, 0);
         }
     }
 
-    private void ForwardButton_Clicked(object sender, EventArgs e)
+    private async void ForwardButton_Clicked(object sender, EventArgs e)
      {
         HideButtons();
-        string[] localSessionForward = File.ReadAllLines(localHistoryForward);
+        string[] localSessionForward = await File.ReadAllLinesAsync(localHistoryForward);
 
         if (localSessionForward.Length==0){
             ShowMessage("No next URL.");
