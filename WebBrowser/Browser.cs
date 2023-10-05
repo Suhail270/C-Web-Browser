@@ -39,7 +39,9 @@ public class WebBrowserApp : Window
     private Button deleteButton;
     private bool isFavoritesPage;
     private Entry favouritesEntry;
-    private Button okButton;
+    private Button addOkButton;
+    private Button editOkButton;
+    private Button deleteOkButton;
     private string[] favourites;
     private string selectedText;
     private bool editMode;
@@ -48,6 +50,7 @@ public class WebBrowserApp : Window
     private Button confirmButton;
     private Button cancelButton;
     private List<string> deleteFavouritesList;
+    private bool dialogDisplayed;
 
     
     public WebBrowserApp() : base("F20SC - CW1")
@@ -86,8 +89,14 @@ public class WebBrowserApp : Window
         favouritesEntry.WidthChars = 50;
         mainVBox.PackStart(favouritesEntry, false, false, 10);
         
-        okButton = new Button("OK");
-        mainVBox.PackStart(okButton, false, false, 10);
+        addOkButton = new Button("OK");
+        mainVBox.PackStart(addOkButton, false, false, 10);
+
+        editOkButton = new Button("OK");
+        mainVBox.PackStart(editOkButton, false, false, 10);
+
+        deleteOkButton = new Button("OK");
+        mainVBox.PackStart(deleteOkButton, false, false, 10);
 
         mainHBox.PackStart(backButton, false, false, 0);
         mainHBox.PackStart(forwardButton, false, false, 10);
@@ -128,7 +137,9 @@ public class WebBrowserApp : Window
         deleteButton.Visible = false;
 
         // favouritesEntry.Visible = false;
-        okButton.Visible = false;
+        addOkButton.Visible = false;
+        editOkButton.Visible = false;
+        deleteOkButton.Visible = false;
 
         var alignment = new Alignment(0.5f, 0.0f, 0.0f, 0.0f);
         alignment.Add(buttonsGrid);
@@ -158,7 +169,9 @@ public class WebBrowserApp : Window
         editButton.Visible = false;
         deleteButton.Visible = false;
         favouritesEntry.Visible = false;
-        okButton.Visible = false;
+        addOkButton.Visible = false;
+        editOkButton.Visible = false;
+        deleteOkButton.Visible = false;
     }
 
     private async void AddButton_Clicked(object sender, EventArgs e){
@@ -194,23 +207,17 @@ public class WebBrowserApp : Window
             return false;
         }
     }
-    private async void FavouritesButton_Clicked(object sender, EventArgs e)
-{
-    try
-    {
-        isFavoritesPage = true; // Set the flag to true when on the favorites page
 
-        // Show the add/edit/delete buttons
-        addButton.Visible = true;
-        editButton.Visible = true;
-        deleteButton.Visible = true;
+    private async void ApplyingHyperlinkTags(){
+        titleLabel.Text = "Favourites";
         favourites = await ReadFavouritesAsync();
+        string favouritesText = string.Join("\n", favourites);
 
-        if (favourites.Length > 0)
-        {
-            string favouritesText = string.Join("\n", favourites);
+        if (favouritesText.Length==0){
+            contentTextView.Buffer.Text = "No favourites added.";
+            return;
+        }
             contentTextView.Buffer.Text = favouritesText;
-            titleLabel.Text = "Favourites";
 
             var hyperlinkTag = contentTextView.Buffer.TagTable.Lookup("hyperlink");
 
@@ -226,25 +233,43 @@ public class WebBrowserApp : Window
             contentTextView.Buffer.TagTable.Add(hyperlinkTag);
 
             // Apply the hyperlink tag to specific text portions
-            var buffer = contentTextView.Buffer;
+            // var buffer = contentTextView.Buffer;
             int startOffset = 0;
             foreach (var line in favourites)
             {
                 int endOffset = startOffset + line.Length;
-                buffer.ApplyTag(hyperlinkTag, buffer.GetIterAtOffset(startOffset), buffer.GetIterAtOffset(endOffset));
+                contentTextView.Buffer.ApplyTag(hyperlinkTag, contentTextView.Buffer.GetIterAtOffset(startOffset), contentTextView.Buffer.GetIterAtOffset(endOffset));
                 startOffset = endOffset + 1;
             }
+
+    }
+    private async void FavouritesButton_Clicked(object sender, EventArgs e)
+{
+    try
+    {
+        isFavoritesPage = true; // Set the flag to true when on the favorites page
+
+        // Show the add/edit/delete buttons
+        addButton.Visible = true;
+        editButton.Visible = true;
+        deleteButton.Visible = true;
+        
+
+        // if (favourites.Length > 0)
+        // {
+        ApplyingHyperlinkTags();
 
             addButton.Clicked += (sender, args) =>
         {
             
             // Show the Entry widget to take user input
             favouritesEntry.Visible = true;
-            okButton.Visible = true;
+            addOkButton.Visible = true;
+            titleLabel.Text = "Add Favourites";
 
             // favourites = File.ReadAllLines(favouritesPath);
 
-            okButton.Clicked += (okSender, okArgs) =>
+            addOkButton.Clicked += async (okSender, okArgs) =>
             {
 
                 if (string.IsNullOrWhiteSpace(favouritesEntry.Text)){
@@ -266,20 +291,22 @@ public class WebBrowserApp : Window
                 
                     File.AppendAllText(favouritesPath, favouritesEntry.Text+"\n");
                     favouritesEntry.Visible = false;
-                    okButton.Visible = false;
+                    addOkButton.Visible = false;
                     favouritesEntry.Text = string.Empty;
-                    FavouritesButton_Clicked(sender, e);
+                    // favourites = await ReadFavouritesAsync();
+                    ApplyingHyperlinkTags();
                 }
                 };
         };
 
-        editButton.Clicked += (s, args) =>
+        editButton.Clicked += async (s, args) =>
         {
             editMode = true;
             favouritesEntry.Text = string.Empty;
             favouritesEntry.Visible = true;
-            okButton.Visible = true;
-            favourites = File.ReadAllLines(favouritesPath);
+            editOkButton.Visible = true;
+            titleLabel.Text = "Edit Favourites";
+            // favourites = File.ReadAllLines(favouritesPath);
             ShowMessage("Please select the URL to edit.");
             
             // if (string.IsNullOrWhiteSpace(selectedText))
@@ -290,8 +317,7 @@ public class WebBrowserApp : Window
             // {
                 // Console.WriteLine("TEXT: ", selectedText);
                 favouritesEntry.Text = selectedText; // Populate the Entry with the selected hyperlink
-
-                okButton.Clicked += async (okSender, okArgs) =>
+                editOkButton.Clicked += async (okSender, okArgs) =>
                 {
                     if (!string.IsNullOrWhiteSpace(favouritesEntry.Text))
                     {
@@ -314,9 +340,10 @@ public class WebBrowserApp : Window
                                 File.WriteAllLines(favouritesPath, favourites);
                                 // favouritesEntry.Text = string.Empty;
                                 favouritesEntry.Visible = false;
-                                okButton.Visible = false;
+                                editOkButton.Visible = false;
                                 editMode = false;
-                                FavouritesButton_Clicked(s, args);
+                                // favourites = await ReadFavouritesAsync();
+                                ApplyingHyperlinkTags();
                             // }
                         }
                     }
@@ -331,7 +358,9 @@ public class WebBrowserApp : Window
             editMode = true;
             favouritesEntry.Text = string.Empty;
             favouritesEntry.Visible = true;
-            okButton.Visible = true;
+            deleteOkButton.Visible = true;
+            titleLabel.Text = "Delete Favourites";
+            dialogDisplayed = false;
             // favourites = File.ReadAllLines(favouritesPath);
             ShowMessage("Please select the URL to delete.");
             
@@ -342,11 +371,12 @@ public class WebBrowserApp : Window
             // else
             // {
                 // Console.WriteLine("TEXT: ", selectedText);
-                favouritesEntry.Text = selectedText; // Populate the Entry with the selected hyperlink
+                // favouritesEntry.Text = selectedText; // Populate the Entry with the selected hyperlink
 
-                okButton.Clicked += async (okSender, okArgs) =>
+                deleteOkButton.Clicked += async (okSender, okArgs) =>
                 {
-                    using (var dialog = new MessageDialog(
+                    if(!dialogDisplayed){
+                        using (var dialog = new MessageDialog(
                         this,
                         DialogFlags.Modal,
                         MessageType.Question,
@@ -358,6 +388,11 @@ public class WebBrowserApp : Window
                         dialog.Title = "Delete URL";
                         dialog.WindowPosition = WindowPosition.Center;
 
+                        dialogDisplayed = true;
+
+                        // Console.Write("\nBefore deleting: ");
+                        // Console.Write(favourites.Length);
+
                         // Show the dialog and get the response
                         ResponseType response = (ResponseType)dialog.Run();
 
@@ -367,20 +402,34 @@ public class WebBrowserApp : Window
                             // User clicked "OK," implement your edit logic here
                             // Console.WriteLine("OK clicked");
                             // favourites.RemoveAt(favouritesIndex);
+                            // Console.Write("\n\nINDEX: ");
+                            // Console.Write(favouritesIndex);
+
                             deleteFavouritesList = new List<string>(favourites);
                             deleteFavouritesList.RemoveAt(favouritesIndex);
+
                             favourites = deleteFavouritesList.ToArray();
+                            // Console.Write("\nAfter deleting: ");
+                            // Console.Write(favourites.Length);
+                            // Console.WriteLine("\nELEMENTS:");
+                            // foreach(var month in favourites)
+                            // {
+                            //     Console.WriteLine(month);
+                            // }
                             File.WriteAllLines(favouritesPath, favourites);
                             // favouritesEntry.Text = string.Empty;
                             favouritesEntry.Visible = false;
-                            okButton.Visible = false;
+                            deleteOkButton.Visible = false;
                             editMode = false;
-                            dialog.Destroy();
-                            FavouritesButton_Clicked(s, args);
+                            dialog.Hide();
+                            // favourites = await ReadFavouritesAsync();
+                            ApplyingHyperlinkTags();
                         }
                         else{
-                            dialog.Destroy();
+                            dialog.Hide();
+                            return;
                         }  
+                        }
                 };
                 favouritesEntry.Text = string.Empty;
             };
@@ -404,18 +453,18 @@ public class WebBrowserApp : Window
                                 int end = iter.Offset;
 
                                 // Find the start and end of the clicked link
-                                while (start >= 0 && buffer.GetIterAtOffset(start).HasTag(tag))
+                                while (start >= 0 && contentTextView.Buffer.GetIterAtOffset(start).HasTag(tag))
                                 {
                                     start--;
                                 }
 
-                                while (end < buffer.Text.Length && buffer.GetIterAtOffset(end).HasTag(tag))
+                                while (end < contentTextView.Buffer.Text.Length && contentTextView.Buffer.GetIterAtOffset(end).HasTag(tag))
                                 {
                                     end++;
                                 }
 
                                 // Extract the URL from the clicked link
-                                selectedText = buffer.GetText(buffer.GetIterAtOffset(start + 1), buffer.GetIterAtOffset(end), false);
+                                selectedText = contentTextView.Buffer.GetText(contentTextView.Buffer.GetIterAtOffset(start + 1), contentTextView.Buffer.GetIterAtOffset(end), false);
                                 
                                 if(editMode==false){
                                 DisplayWebContent(selectedText, "nav");
@@ -429,12 +478,12 @@ public class WebBrowserApp : Window
                     }
                 }
             };
-        }
-        else
-        {
-            contentTextView.Buffer.Text = "Favourites is empty.";
-            titleLabel.Text = string.Empty;
-        }
+        // }
+        // else
+        // {
+        //     contentTextView.Buffer.Text = "Favourites is empty.";
+        //     titleLabel.Text = string.Empty;
+        // }
     }
     catch (Exception ex)
     {
