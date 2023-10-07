@@ -39,11 +39,14 @@ public class WebBrowserApp : Window
     private Button deleteButton;
     private bool isFavoritesPage;
     private Entry favouritesEntry;
+    private Entry favouritesTitleEntry;
     private Button addOkButton;
     private Button editOkButton;
     private Button deleteOkButton;
     private string[] favourites;
     private string selectedText;
+    private string navigateText;
+    private string titleText;
     private bool editMode;
     private int favouritesIndex;
     private bool valid;
@@ -51,6 +54,12 @@ public class WebBrowserApp : Window
     private Button cancelButton;
     private List<string> deleteFavouritesList;
     private bool dialogDisplayed;
+    private Button editHomeButton;
+    private Entry homeEntry;
+    private Button editHomeOkButton;
+    private List<string> newHomePage;
+
+    private Dictionary<TextTag, string> tagToUrlMap;
 
     
     public WebBrowserApp() : base("F20SC - CW1")
@@ -64,6 +73,10 @@ public class WebBrowserApp : Window
 
         addressEntry = new Entry();
         addressEntry.WidthChars = 50;
+
+        homeEntry = new Entry();
+        homeEntry.WidthChars = 50;
+
         navigateButton = new Button("Go");
         homeButton = new Button("Home");
         backButton = new Button("<");
@@ -73,6 +86,7 @@ public class WebBrowserApp : Window
         scrolledWindow = new ScrolledWindow();
         titleLabel = new Label();
         historyButton = new Button("History"); // Create the history button
+        editHomeButton = new Button("Edit Home");
         
         historyButton.Clicked += HistoryButton_ClickedAsync; // Attach an event handler
         navigateButton.Clicked += NavigateButton_Clicked;
@@ -80,11 +94,19 @@ public class WebBrowserApp : Window
         backButton.Clicked += BackButton_Clicked;
         forwardButton.Clicked += ForwardButton_Clicked;
         favouritesButton.Clicked += FavouritesButton_Clicked;
+        editHomeButton.Clicked += EditHomeButton_Clicked;
 
         mainVBox.PackStart(mainHBox, false, false, 0);
         mainVBox.PackStart(titleHBox, false, false, 0);
         
+        favouritesTitleEntry = new Entry();
+        favouritesTitleEntry.PlaceholderText = "Enter title";
+        favouritesTitleEntry.Visible = false;
+        favouritesTitleEntry.WidthChars = 50;
+        mainVBox.PackStart(favouritesTitleEntry, false, false, 10);
+
         favouritesEntry = new Entry();
+        favouritesEntry.PlaceholderText = "Enter URL";
         favouritesEntry.Visible = false;
         favouritesEntry.WidthChars = 50;
         mainVBox.PackStart(favouritesEntry, false, false, 10);
@@ -98,11 +120,15 @@ public class WebBrowserApp : Window
         deleteOkButton = new Button("OK");
         mainVBox.PackStart(deleteOkButton, false, false, 10);
 
+        editHomeOkButton = new Button("OK");
+        mainVBox.PackStart(editHomeOkButton, false, false, 10);
+
         mainHBox.PackStart(backButton, false, false, 0);
         mainHBox.PackStart(forwardButton, false, false, 10);
         mainHBox.PackStart(addressEntry, false, false, 10);
         mainHBox.PackStart(navigateButton, false, false, 10);
         mainHBox.PackStart(homeButton, false, false, 10);
+        mainHBox.PackStart(editHomeButton, false, false, 10);
         mainHBox.PackStart(historyButton, false, false, 10);
         mainHBox.PackStart(favouritesButton, false, false, 10);
 
@@ -113,8 +139,8 @@ public class WebBrowserApp : Window
         contentTextView.Editable = false;
         contentTextView.WrapMode = WrapMode.WordChar;
         scrolledWindow.Add(contentTextView);
+        mainVBox.PackStart(homeEntry, false, false, 10);
         mainVBox.PackStart(scrolledWindow, true, true, 0);
-        
 
         // Create a grid for the buttons
         buttonsGrid = new Grid();
@@ -125,6 +151,8 @@ public class WebBrowserApp : Window
         addButton = new Button("Add Favorite");
         editButton = new Button("Edit Favorite");
         deleteButton = new Button("Delete Favorite");
+
+        tagToUrlMap = new Dictionary<TextTag, string>();
 
         // Attach buttons to the grid
         buttonsGrid.Attach(addButton, 0, 0, 1, 1);
@@ -169,9 +197,12 @@ public class WebBrowserApp : Window
         editButton.Visible = false;
         deleteButton.Visible = false;
         favouritesEntry.Visible = false;
+        favouritesTitleEntry.Visible = false;
         addOkButton.Visible = false;
         editOkButton.Visible = false;
         deleteOkButton.Visible = false;
+        homeEntry.Visible = false;
+        editHomeOkButton.Visible = false;
     }
 
     private async void AddButton_Clicked(object sender, EventArgs e){
@@ -208,9 +239,51 @@ public class WebBrowserApp : Window
         }
     }
 
-    private async void ApplyingHyperlinkTags(){
+//    private async void ApplyingHyperlinkTags()
+// {
+//     titleLabel.Text = "Favourites";
+//     favourites = await ReadFavouritesAsync();
+//     string favouritesText = string.Join("\n", favourites);
+
+//     if (favouritesText.Length == 0)
+//     {
+//         contentTextView.Buffer.Text = "No favourites added.";
+//         return;
+//     }
+
+//     TextBuffer buffer = new TextBuffer(null);
+//     contentTextView.Buffer = buffer; // Set the new TextBuffer to contentTextView
+
+//     int startOffset = 0;
+
+//     foreach (var line in favourites)
+//     {
+//         int endOffset = startOffset + line.Length;
+//         TextIter iter = buffer.GetIterAtOffset(startOffset);
+
+//         // Create a new TextTag for each URL
+//         TextTag hyperlinkTag = new TextTag("hyperlink");
+//         hyperlinkTag.Underline = Pango.Underline.Single;
+
+//         // Store the URL as user data with the tag
+//         hyperlinkTag.Data = line.Split(',')[1].Trim(); // Assuming URLs are comma-separated
+
+//         // Apply the "hyperlink" tag to the text portion
+//         buffer.ApplyTag(hyperlinkTag, iter, buffer.GetIterAtOffset(endOffset));
+
+//         startOffset = endOffset + 1;
+//     }
+// }
+
+private async void ApplyingHyperlinkTags(string page){
         titleLabel.Text = "Favourites";
+        
+        if(page=="favourites"){
         favourites = await ReadFavouritesAsync();
+        }
+        else{
+            favourites = await ReadHistoryAsync();
+        }
         string favouritesText = string.Join("\n", favourites);
 
         if (favouritesText.Length==0){
@@ -225,8 +298,6 @@ public class WebBrowserApp : Window
             if (hyperlinkTag == null)
             {
                 hyperlinkTag = new TextTag("hyperlink");
-                hyperlinkTag.Underline = Pango.Underline.Single;
-                contentTextView.Buffer.TagTable.Add(hyperlinkTag);
             }
 
             hyperlinkTag.Underline = Pango.Underline.Single;
@@ -243,8 +314,12 @@ public class WebBrowserApp : Window
             }
 
     }
+
     private async void FavouritesButton_Clicked(object sender, EventArgs e)
-{
+{   
+    HideButtons();
+    favouritesEntry.Text = string.Empty;
+    favouritesTitleEntry.Text = string.Empty;
     try
     {
         isFavoritesPage = true; // Set the flag to true when on the favorites page
@@ -257,13 +332,14 @@ public class WebBrowserApp : Window
 
         // if (favourites.Length > 0)
         // {
-        ApplyingHyperlinkTags();
+        ApplyingHyperlinkTags("favourites");
 
             addButton.Clicked += (sender, args) =>
         {
             
             // Show the Entry widget to take user input
             favouritesEntry.Visible = true;
+            favouritesTitleEntry.Visible = true;
             addOkButton.Visible = true;
             titleLabel.Text = "Add Favourites";
 
@@ -273,13 +349,18 @@ public class WebBrowserApp : Window
             {
 
                 if (string.IsNullOrWhiteSpace(favouritesEntry.Text)){
-                    // ShowMessage("Entry bar is empty.");
+                    ShowMessage("Please enter the URL.");
+                }
+
+                else if (string.IsNullOrWhiteSpace(favouritesTitleEntry.Text)){
+                    ShowMessage("Please enter the title for this URL.");
                 }
 
                 else if (!Uri.IsWellFormedUriString(favouritesEntry.Text, UriKind.Absolute)){
                     
                     ShowMessage("Invalid URL.");
                     favouritesEntry.Text = string.Empty;
+                    favouritesTitleEntry.Text = string.Empty;
                 }
                 
                 else{
@@ -289,22 +370,33 @@ public class WebBrowserApp : Window
                         return;
                     }
                 
-                    File.AppendAllText(favouritesPath, favouritesEntry.Text+"\n");
+                    File.AppendAllText(favouritesPath, favouritesTitleEntry.Text + ": " + favouritesEntry.Text+"\n");
                     favouritesEntry.Visible = false;
+                    favouritesTitleEntry.Visible = false;
                     addOkButton.Visible = false;
-                    favouritesEntry.Text = string.Empty;
                     // favourites = await ReadFavouritesAsync();
-                    ApplyingHyperlinkTags();
+                    favouritesEntry.Text = string.Empty;
+                    favouritesTitleEntry.Text = string.Empty;
+                    ApplyingHyperlinkTags("favourites");
                 }
+
+                
                 };
+                
         };
 
         editButton.Clicked += async (s, args) =>
         {
             editMode = true;
+
             favouritesEntry.Text = string.Empty;
             favouritesEntry.Visible = true;
+
+            favouritesTitleEntry.Text = string.Empty;
+            favouritesTitleEntry.Visible = true;
+
             editOkButton.Visible = true;
+
             titleLabel.Text = "Edit Favourites";
             // favourites = File.ReadAllLines(favouritesPath);
             ShowMessage("Please select the URL to edit.");
@@ -316,7 +408,9 @@ public class WebBrowserApp : Window
             // else
             // {
                 // Console.WriteLine("TEXT: ", selectedText);
-                favouritesEntry.Text = selectedText; // Populate the Entry with the selected hyperlink
+                navigateText = "";
+                titleText = "";
+                // favouritesEntry.Text = selectedText; // Populate the Entry with the selected hyperlink
                 editOkButton.Clicked += async (okSender, okArgs) =>
                 {
                     if (!string.IsNullOrWhiteSpace(favouritesEntry.Text))
@@ -328,7 +422,7 @@ public class WebBrowserApp : Window
                         {
                             ShowMessage("Invalid URL.");
                             favouritesEntry.Text = string.Empty;
-                            // favouritesEntry.Text = string.Empty;
+                            favouritesTitleEntry.Text = string.Empty;
                         }
                         else
                         {
@@ -336,14 +430,15 @@ public class WebBrowserApp : Window
                             
                             // if (selectedIndex >= 0)
                             // {
-                                favourites[favouritesIndex] = favouritesEntry.Text;
+                                favourites[favouritesIndex] = favouritesTitleEntry.Text + ": " + favouritesEntry.Text;
                                 File.WriteAllLines(favouritesPath, favourites);
                                 // favouritesEntry.Text = string.Empty;
                                 favouritesEntry.Visible = false;
+                                favouritesTitleEntry.Visible = false;
                                 editOkButton.Visible = false;
                                 editMode = false;
                                 // favourites = await ReadFavouritesAsync();
-                                ApplyingHyperlinkTags();
+                                ApplyingHyperlinkTags("favourites");
                             // }
                         }
                     }
@@ -353,10 +448,63 @@ public class WebBrowserApp : Window
             favouritesEntry.Text = string.Empty;
         };
 
+        // editButton.Clicked += async (s, args) =>
+        // {
+        //     editMode = true;
+        //     favouritesEntry.Text = string.Empty;
+        //     favouritesTitleEntry.Text = string.Empty;
+        //     favouritesEntry.Visible = true;
+        //     favouritesTitleEntry.Visible = true;
+        //     editOkButton.Visible = true;
+        //     titleLabel.Text = "Edit Favourites";
+        //     ShowMessage("Please select the URL to edit.");
+            
+        //         // navigateText = "";
+        //         // titleText = "";
+
+        //         editOkButton.Clicked += async (okSender, okArgs) =>
+        //         {
+        //             if (!string.IsNullOrWhiteSpace(favouritesEntry.Text))
+        //             {
+        //                 valid = await Validation(favouritesEntry.Text);
+                    
+        //                 if (!valid)
+        //                 {
+        //                     ShowMessage("Invalid URL.");
+        //                     favouritesEntry.Text = string.Empty;
+        //                     favouritesTitleEntry.Text = string.Empty;
+
+        //                 }
+        //                 else
+        //                 {       
+        //                     try{
+        //                         favourites[favouritesIndex] = favouritesTitleEntry.Text + ": " + favouritesEntry.Text;
+        //                         Console.WriteLine("TITLE: " + favouritesTitleEntry.Text);
+        //                         Console.WriteLine("ENTRY: " + favouritesEntry.Text);
+        //                         File.WriteAllLines(favouritesPath, favourites);
+        //                     }
+        //                     catch (Exception ex)
+        //                     {
+        //                         throw new Exception($"Exception: {ex.Message}");
+        //                     }
+        //                         favouritesEntry.Visible = false;
+        //                         editOkButton.Visible = false;
+        //                         editMode = false;
+        //                         favouritesEntry.Text = string.Empty;
+        //                         favouritesTitleEntry.Text = string.Empty;
+        //                         ApplyingHyperlinkTags("favourites");
+        //                 }
+        //             }
+                    
+        //         };
+            
+        // };
+
         deleteButton.Clicked += (s, args) =>
         {
             editMode = true;
             favouritesEntry.Text = string.Empty;
+            favouritesTitleEntry.Text = string.Empty;
             favouritesEntry.Visible = true;
             deleteOkButton.Visible = true;
             titleLabel.Text = "Delete Favourites";
@@ -419,11 +567,12 @@ public class WebBrowserApp : Window
                             File.WriteAllLines(favouritesPath, favourites);
                             // favouritesEntry.Text = string.Empty;
                             favouritesEntry.Visible = false;
+                            favouritesTitleEntry.Visible = false;
                             deleteOkButton.Visible = false;
                             editMode = false;
                             dialog.Hide();
                             // favourites = await ReadFavouritesAsync();
-                            ApplyingHyperlinkTags();
+                            ApplyingHyperlinkTags("favourites");
                         }
                         else{
                             dialog.Hide();
@@ -432,6 +581,7 @@ public class WebBrowserApp : Window
                         }
                 };
                 favouritesEntry.Text = string.Empty;
+                favouritesTitleEntry.Text = string.Empty;
             };
         };
 
@@ -465,13 +615,24 @@ public class WebBrowserApp : Window
 
                                 // Extract the URL from the clicked link
                                 selectedText = contentTextView.Buffer.GetText(contentTextView.Buffer.GetIterAtOffset(start + 1), contentTextView.Buffer.GetIterAtOffset(end), false);
+                                navigateText = "";
+                                
+                                for(int i = 0; i<selectedText.Length; i++){
+                                    if(selectedText[i]==':'){
+                                        navigateText = selectedText.Substring(i+2, selectedText.Length - (i + 2));
+                                        // Console.Write(selectedText[i]);
+                                        if (editMode==true){
+                                            favouritesTitleEntry.Text = selectedText.Substring(0, i);
+                                            favouritesEntry.Text = selectedText.Substring(i+2, selectedText.Length - (i + 2));
+                                            favouritesIndex = Array.IndexOf(favourites, selectedText);
+                                        }
+                                        break;
+                                    }
+                                } 
                                 
                                 if(editMode==false){
-                                DisplayWebContent(selectedText, "nav");
-                                }
-                                else{
-                                    favouritesEntry.Text = selectedText;
-                                    favouritesIndex = Array.IndexOf(favourites, selectedText);
+                                    Console.Write(navigateText + "test");
+                                DisplayWebContent(navigateText, "nav");
                                 }
                             }
                         }
@@ -544,8 +705,50 @@ public class WebBrowserApp : Window
             if (history.Length > 0)
             {
                 string historyText = string.Join("\n", history);
-                contentTextView.Buffer.Text = historyText;
                 titleLabel.Text = "History";
+                ApplyingHyperlinkTags("history");
+                
+                contentTextView.ButtonPressEvent += (s, args) =>
+            {
+                if (args.Event.Type == Gdk.EventType.ButtonPress && args.Event.Button == 1)
+                {
+                    TextIter iter;
+                    if (contentTextView.GetIterAtLocation(out iter, (int)args.Event.X, (int)args.Event.Y))
+                    {
+                        TextTag[] tags = iter.Tags;
+                        foreach (TextTag tag in tags)
+                        {
+                            if (tag.Name == "hyperlink")
+                            {
+                                // Handle the hyperlink click
+                                int start = iter.Offset;
+                                int end = iter.Offset;
+
+                                // Find the start and end of the clicked link
+                                while (start >= 0 && contentTextView.Buffer.GetIterAtOffset(start).HasTag(tag))
+                                {
+                                    start--;
+                                }
+
+                                while (end < contentTextView.Buffer.Text.Length && contentTextView.Buffer.GetIterAtOffset(end).HasTag(tag))
+                                {
+                                    end++;
+                                }
+
+                                // Extract the URL from the clicked link
+                                selectedText = contentTextView.Buffer.GetText(contentTextView.Buffer.GetIterAtOffset(start + 1), contentTextView.Buffer.GetIterAtOffset(end), false);
+                                // navigateText = "";
+                                
+                                // Console.Write(selectedText);
+                                
+                                DisplayWebContent(selectedText, "nav");
+                                
+                            }
+                        }
+                    }
+                }
+            };
+                
             }
             else
             {
@@ -593,15 +796,66 @@ public class WebBrowserApp : Window
         HideButtons();
         LoadHomePage();
     }
+
+    private void EditHomeButton_Clicked(object sender, EventArgs e){
+        
+        HideButtons();
+        favouritesEntry.Text = string.Empty;
+        favouritesTitleEntry.Text = string.Empty;
+        favouritesEntry.Visible = true;
+        editHomeOkButton.Visible = true;
+        contentTextView.Buffer.Text = "Enter the new home URL in the entry bar above.";
+        editHomeOkButton.Clicked += async (okSender, okArgs) =>
+        {
+            if (!string.IsNullOrWhiteSpace(favouritesEntry.Text))
+                    {
+                        // ShowMessage("Entry bar is empty.");
+                        valid = await Validation(favouritesEntry.Text);
+                    
+                        if (!valid)
+                        {
+                            ShowMessage("Invalid URL.");
+                            favouritesEntry.Text = string.Empty;
+                            favouritesTitleEntry.Text = string.Empty;
+                            // favouritesEntry.Text = string.Empty;
+                        }
+                        else
+                        {
+                            // Find and update the selected hyperlink in the 'favourites' array
+                            
+                            // if (selectedIndex >= 0)
+                            // {
+                                // favourites[favouritesIndex] = favouritesEntry.Text;
+                                // File.WriteAllLines(homePath, favouritesEntry.Text);
+                                // favouritesEntry.Text = string.Empty;
+                                // Console.WriteLine("TEXT:");
+                                // Console.WriteLine(favouritesEntry.Text);
+                                newHomePage = new List<string>();
+                                newHomePage.Add(favouritesEntry.Text);
+                                File.WriteAllLines(homePath, newHomePage);
+                                contentTextView.Buffer.Text = string.Empty;
+                                favouritesEntry.Visible = false;
+                                editHomeOkButton.Visible = false;
+                                ShowMessage("Home page updated, you have been redirected to your new home page.");
+                                LoadHomePage();
+                                // favourites = await ReadFavouritesAsync();
+                            // }
+                        }
+                    }
+        };
+
+
+    }
+
     private async void DisplayWebContent(string url, string action){
 
         HideButtons();
 
-        if (!Uri.IsWellFormedUriString(url, UriKind.Absolute))
-        {
-            ShowMessage("Invalid URL.");
-            return;
-        }
+        // if (!Uri.IsWellFormedUriString(url, UriKind.Absolute))
+        // {
+        //     ShowMessage("Invalid URL.");
+        //     return;
+        // }
 
         try
         {
