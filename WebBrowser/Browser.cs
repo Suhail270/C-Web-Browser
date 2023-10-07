@@ -59,6 +59,7 @@ public class WebBrowserApp : Window
     private Button editHomeOkButton;
     private List<string> newHomePage;
     private string[] historyText;
+    private Button clearHistoryButton;
 
     private Dictionary<TextTag, string> tagToUrlMap;
 
@@ -91,6 +92,7 @@ public class WebBrowserApp : Window
         titleLabel = new Label();
         historyButton = new Button("History"); // Create the history button
         editHomeButton = new Button("Edit Home");
+        clearHistoryButton = new Button("Clear History");
         
         historyButton.Clicked += HistoryButton_ClickedAsync; // Attach an event handler
         navigateButton.Clicked += NavigateButton_Clicked;
@@ -99,9 +101,11 @@ public class WebBrowserApp : Window
         forwardButton.Clicked += ForwardButton_Clicked;
         favouritesButton.Clicked += FavouritesButton_Clicked;
         editHomeButton.Clicked += EditHomeButton_Clicked;
+        clearHistoryButton.Clicked += ClearHistoryButton_Clicked;
 
         mainVBox.PackStart(mainHBox, false, false, 0);
         mainVBox.PackStart(titleHBox, false, false, 0);
+        // mainVBox.PackStart(clearHistoryButton, false, false, 0);
         
         favouritesTitleEntry = new Entry();
         favouritesTitleEntry.PlaceholderText = "Enter title";
@@ -138,6 +142,8 @@ public class WebBrowserApp : Window
 
         titleHBox.PackStart(titleLabel, false, false, 10);
 
+        titleHBox.PackEnd(clearHistoryButton, false, false, 10);
+
         var textBuffer = new TextBuffer(null);
         contentTextView.Buffer = textBuffer;
         contentTextView.Editable = false;
@@ -155,8 +161,6 @@ public class WebBrowserApp : Window
         addButton = new Button("Add Favorite");
         editButton = new Button("Edit Favorite");
         deleteButton = new Button("Delete Favorite");
-
-        tagToUrlMap = new Dictionary<TextTag, string>();
 
         // Attach buttons to the grid
         buttonsGrid.Attach(addButton, 0, 0, 1, 1);
@@ -183,6 +187,7 @@ public class WebBrowserApp : Window
 
         // Add the buttons grid to the bottom right corner
         scrolledWindow.AddWithViewport(contentTextView);
+        
         mainVBox.PackStart(buttonsGrid, false, false, 0);
 
 
@@ -194,9 +199,8 @@ public class WebBrowserApp : Window
     }
 
     private async void HideButtons(){
-        isFavoritesPage = false; // Set the flag to false when leaving the favorites page
-
-        // Hide the add/edit/delete buttons
+        isFavoritesPage = false;
+        clearHistoryButton.Visible = false;
         addButton.Visible = false;
         editButton.Visible = false;
         deleteButton.Visible = false;
@@ -208,6 +212,58 @@ public class WebBrowserApp : Window
         homeEntry.Visible = false;
         editHomeOkButton.Visible = false;
     }
+
+    private async void ClearHistoryButton_Clicked(object sender, EventArgs e){
+        string[] history = await ReadHistoryAsync();
+
+        if (history.Length==0){
+            ShowMessage("History is already empty.");
+        }
+
+        else{
+
+            if(!dialogDisplayed){
+                        using (var dialog = new MessageDialog(
+                        this,
+                        DialogFlags.Modal,
+                        MessageType.Question,
+                        ButtonsType.YesNo,
+                        $"Are you sure you want to clear your history? This is a non-reversible action.")
+                    )
+                    {
+                        // Configure the dialog
+                        dialog.Title = "Clear History";
+                        dialog.WindowPosition = WindowPosition.Center;
+
+                        dialogDisplayed = true;
+
+                        // Console.Write("\nBefore deleting: ");
+                        // Console.Write(favourites.Length);
+
+                        // Show the dialog and get the response
+                        ResponseType response = (ResponseType)dialog.Run();
+
+                        // Handle the dialog response
+                        if (response == ResponseType.Yes)
+                        {
+                            File.WriteAllText(historyPath, string.Empty);
+                            dialog.Hide();
+                            dialogDisplayed = false;      
+                        }
+                        else{
+                            dialog.Hide();
+                            dialogDisplayed = false;
+                            return;
+                        }  
+                        }
+                    contentTextView.Buffer.Text = "History is empty.";
+                    ShowMessage("History cleared sucessfully.");
+                };
+
+        }
+
+
+        }
 
     private async void AddButton_Clicked(object sender, EventArgs e){
         favourites = await File.ReadAllLinesAsync(favouritesPath);
@@ -280,12 +336,13 @@ public class WebBrowserApp : Window
 // }
 
 private async void ApplyingHyperlinkTags(string page){
-        titleLabel.Text = "Favourites";
         
         if(page=="favourites"){
-        favourites = await ReadFavouritesAsync();
+            titleLabel.Text = "Favourites";
+            favourites = await ReadFavouritesAsync();
         }
         else{
+            titleLabel.Text = "History";
             favourites = await ReadHistoryAsync();
         }
         string favouritesText = string.Join("\n", favourites);
@@ -695,12 +752,12 @@ private async void ApplyingHyperlinkTags(string page){
         try
         {
             HideButtons();
+            clearHistoryButton.Visible = true;
             string[] history = await ReadHistoryAsync();
 
             if (history.Length > 0)
             {
                 string historyText = string.Join("\n", history);
-                titleLabel.Text = "History";
                 ApplyingHyperlinkTags("history");
                 
                 contentTextView.ButtonPressEvent += (s, args) =>
@@ -747,8 +804,8 @@ private async void ApplyingHyperlinkTags(string page){
             }
             else
             {
+                titleLabel.Text = "History";
                 contentTextView.Buffer.Text = "History is empty.";
-                titleLabel.Text = string.Empty;
             }
         }
         catch (Exception ex)
