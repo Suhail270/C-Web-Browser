@@ -29,8 +29,8 @@ public class WebBrowserApp : Window
     private Button backButton;
     private Button forwardButton;
     private Button favouritesButton;
-    private string localHistoryBack = "back.txt";
-    private string localHistoryForward = "forward.txt";
+    private LinkedList<string> localHistoryBack;
+    private LinkedList<string> localHistoryForward;
     TextIter startIter;
     TextIter endIter;
     private Grid buttonsGrid;
@@ -58,6 +58,7 @@ public class WebBrowserApp : Window
     private Entry homeEntry;
     private Button editHomeOkButton;
     private List<string> newHomePage;
+    private string[] historyText;
 
     private Dictionary<TextTag, string> tagToUrlMap;
 
@@ -76,6 +77,9 @@ public class WebBrowserApp : Window
 
         homeEntry = new Entry();
         homeEntry.WidthChars = 50;
+
+        localHistoryBack = new LinkedList<string>();
+        localHistoryForward = new LinkedList<string>();
 
         navigateButton = new Button("Go");
         homeButton = new Button("Home");
@@ -666,32 +670,23 @@ private async void ApplyingHyperlinkTags(string page){
      private void BackButton_Clicked(object sender, EventArgs e) //Need to update previous and next lists in the displaywebcontent function
      {
         HideButtons();
-        string[] localSession = File.ReadAllLines(localHistoryBack);
-
-        if (localSession.Length==0){
-            ShowMessage("No previous URL.");
+        if (localHistoryBack.Count==0){
+            ShowMessage("No next URL.");
         }
         else{
-            string prevURL = localSession.Last();
-            string[] updatedSession = localSession.Take(localSession.Length - 1).ToArray();
-            File.WriteAllLines(localHistoryBack, updatedSession);
-            DisplayWebContent(prevURL, "back");
+            DisplayWebContent(localHistoryBack.Last.Value, "back");
         }
     }
 
     private async void ForwardButton_Clicked(object sender, EventArgs e)
      {
         HideButtons();
-        string[] localSessionForward = await File.ReadAllLinesAsync(localHistoryForward);
 
-        if (localSessionForward.Length==0){
+        if (localHistoryForward.Count==0){
             ShowMessage("No next URL.");
         }
         else{
-            string nextURL = localSessionForward.Last();
-            string[] updatedSessionForward = localSessionForward.Take(localSessionForward.Length - 1).ToArray();
-            File.WriteAllLines(localHistoryForward, updatedSessionForward);
-            DisplayWebContent(nextURL, "next");
+            DisplayWebContent(localHistoryForward.Last.Value, "next");
         }
     }
 
@@ -767,10 +762,15 @@ private async void ApplyingHyperlinkTags(string page){
     {
         if (File.Exists(historyPath))
         {
-            return await File.ReadAllLinesAsync(historyPath);
+            historyText = await File.ReadAllLinesAsync(historyPath);
+            Array.Reverse(historyText);
         }
 
-        return new string[0];
+        else{
+            File.Create(historyPath).Close();
+        }
+
+        return historyText;
     }
 
 
@@ -901,19 +901,32 @@ private async void ApplyingHyperlinkTags(string page){
 
                 if (response.IsSuccessStatusCode)
                 {   
-                    if (File.Exists(localHistoryBack) && (action=="next" || action=="nav"))
+                    if (action=="nav")
                     {
-                        File.AppendAllText(localHistoryBack, currentUrl+"\n");
+                        localHistoryBack.AddLast(currentUrl);
+                        localHistoryForward.Clear();
                     }
 
-                    else if (File.Exists(localHistoryForward) && action=="back"){
-                        File.AppendAllText(localHistoryForward, currentUrl+"\n");
+                    else if (action=="next")
+                    {
+                        localHistoryBack.AddLast(currentUrl);
+                        localHistoryForward.RemoveLast();
+                        localHistoryBack.AddLast(currentUrl);
+                    }
+
+                    else if (action=="back"){
+                        localHistoryBack.RemoveLast();
+                        localHistoryForward.AddLast(currentUrl);
                     }
 
                     else if (action=="home"){
                         if(!startUp){
-                            File.AppendAllText(localHistoryBack, currentUrl+"\n");
+                            localHistoryBack.AddLast(currentUrl);
                         }
+                    }
+
+                    else if (action=="reload"){
+
                     }
 
                     if(!startUp){
@@ -1000,8 +1013,6 @@ private async void ApplyingHyperlinkTags(string page){
     {
         Application.Init();
         var app = new WebBrowserApp();
-        File.WriteAllText(app.localHistoryBack, "");
-        File.WriteAllText(app.localHistoryForward, "");
         app.LoadHomePage();
         app.ShowAll();
         Application.Run();
