@@ -61,10 +61,12 @@ public class WebBrowserApp : Window
     private string[] historyText;
     private Button clearHistoryButton;
     private Button reloadButton;
-
-    private Dictionary<TextTag, string> tagToUrlMap;
-
-    
+    private Button bulkDownloadButton;
+    private Entry bulkDownloadEntry;
+    private Button downloadOkButton;
+    private string bulkDownloadPath;
+    private string[] downloadLines;
+    private string bulkDownloadResult;
     public WebBrowserApp() : base("F20SC - CW1")
     {
         SetDefaultSize(900, 700);
@@ -79,6 +81,9 @@ public class WebBrowserApp : Window
 
         homeEntry = new Entry();
         homeEntry.WidthChars = 50;
+
+        bulkDownloadEntry = new Entry();
+        bulkDownloadEntry.WidthChars = 50;
 
         localHistoryBack = new LinkedList<string>();
         localHistoryForward = new LinkedList<string>();
@@ -95,6 +100,7 @@ public class WebBrowserApp : Window
         editHomeButton = new Button("Edit Home");
         clearHistoryButton = new Button("Clear History");
         reloadButton = new Button("↻");
+        bulkDownloadButton = new Button("Bulk Download");
         
         historyButton.Clicked += HistoryButton_ClickedAsync; // Attach an event handler
         navigateButton.Clicked += NavigateButton_Clicked;
@@ -105,6 +111,7 @@ public class WebBrowserApp : Window
         editHomeButton.Clicked += EditHomeButton_Clicked;
         clearHistoryButton.Clicked += ClearHistoryButton_Clicked;
         reloadButton.Clicked += ReloadButton_Clicked;
+        bulkDownloadButton.Clicked += BulkDownloadButton_Clicked;
 
         mainVBox.PackStart(mainHBox, false, false, 0);
         mainVBox.PackStart(titleHBox, false, false, 0);
@@ -121,7 +128,16 @@ public class WebBrowserApp : Window
         favouritesEntry.Visible = false;
         favouritesEntry.WidthChars = 50;
         mainVBox.PackStart(favouritesEntry, false, false, 10);
+
+        bulkDownloadEntry = new Entry();
+        bulkDownloadEntry.PlaceholderText = "Leave empty for default file: 'bulk.txt'";
+        bulkDownloadEntry.Visible = false;
+        bulkDownloadEntry.WidthChars = 50;
+        mainVBox.PackStart(bulkDownloadEntry, false, false, 10);
         
+        downloadOkButton = new Button("OK");
+        mainVBox.PackStart(downloadOkButton, false, false, 10);
+
         addOkButton = new Button("OK");
         mainVBox.PackStart(addOkButton, false, false, 10);
 
@@ -143,6 +159,7 @@ public class WebBrowserApp : Window
         mainHBox.PackStart(editHomeButton, false, false, 10);
         mainHBox.PackStart(historyButton, false, false, 10);
         mainHBox.PackStart(favouritesButton, false, false, 10);
+        mainHBox.PackStart(bulkDownloadButton, false, false, 10);
 
         titleHBox.PackStart(titleLabel, false, false, 10);
 
@@ -215,9 +232,68 @@ public class WebBrowserApp : Window
         deleteOkButton.Visible = false;
         homeEntry.Visible = false;
         editHomeOkButton.Visible = false;
+        bulkDownloadEntry.Visible = false;
+        downloadOkButton.Visible = false;
     }
 
-     private async void ReloadButton_Clicked(object sender, EventArgs e){
+    private async void BulkDownloadButton_Clicked(object sender, EventArgs e)
+{
+    titleLabel.Text = "Bulk Download";
+    bulkDownloadPath = string.Empty;
+    contentTextView.Buffer.Text = string.Empty;
+    bulkDownloadEntry.Visible = true;
+    bulkDownloadEntry.Text = string.Empty;
+    downloadOkButton.Visible = true;
+
+    EventHandler downloadButtonClicked = null;
+    downloadButtonClicked = async (okSender, okArgs) =>
+    {
+        downloadOkButton.Clicked -= downloadButtonClicked; // Remove the event handler
+        if (bulkDownloadEntry.Text == string.Empty)
+        {
+            bulkDownloadEntry.Text = "bulk.txt";
+        }
+        bulkDownloadPath = bulkDownloadEntry.Text;
+        if (!File.Exists(bulkDownloadPath))
+        {
+            ShowMessage("File does not exist. Please ensure that you have entered the right path.");
+        }
+        else
+        {
+            downloadLines = await ReadBulkDownloadAsync();
+            contentTextView.Buffer.Text = string.Empty;
+
+            using (HttpClient client = new HttpClient())
+            {
+                bulkDownloadResult = "";
+                foreach (string url in downloadLines)
+                {
+                    valid = await Validation(url);
+                    if (valid)
+                    {
+                        HttpResponseMessage response = await client.GetAsync(url);
+                        int statusCode = (int)response.StatusCode;
+                        long bytes = response.Content.Headers.ContentLength ?? 0;
+
+                        bulkDownloadResult += $"<{statusCode}> <{bytes}> <{url}>.\n";
+                    }
+                    else
+                    {
+                        bulkDownloadResult += (url + " - Invalid URL.");
+                    }
+                }
+            }
+
+            contentTextView.Buffer.Text = bulkDownloadResult; // Set the text only once
+        }
+    };
+
+    downloadOkButton.Clicked += downloadButtonClicked; // Register the event handler
+}
+
+
+
+    private async void ReloadButton_Clicked(object sender, EventArgs e){
        DisplayWebContent(currentUrl, "reload");
      }
 
@@ -837,6 +913,12 @@ private async void ApplyingHyperlinkTags(string page){
         return historyText;
     }
 
+    private async Task<string[]> ReadBulkDownloadAsync()
+    {
+        downloadLines = await File.ReadAllLinesAsync(bulkDownloadPath);
+        return downloadLines;
+    }
+
 
     private void ShowMessage(string message)
 {
@@ -959,54 +1041,63 @@ private async void ApplyingHyperlinkTags(string page){
         {
             using (HttpClient client = new HttpClient())
             {
+                
                 HttpResponseMessage response = await client.GetAsync(url);
+                
 
-                if (response.IsSuccessStatusCode)
-                {   
-                    if (action=="nav")
-                    {
-                        localHistoryBack.AddLast(currentUrl);
-                        localHistoryForward.Clear();
-                    }
+                    if (response.IsSuccessStatusCode)
+                    {   
+                        if (action=="nav")
+                        {
+                            localHistoryBack.AddLast(currentUrl);
+                            localHistoryForward.Clear();
+                        }
 
-                    else if (action=="next")
-                    {
-                        localHistoryBack.AddLast(currentUrl);
-                        localHistoryForward.RemoveLast();
-                        localHistoryBack.AddLast(currentUrl);
-                    }
-
-                    else if (action=="back"){
-                        localHistoryBack.RemoveLast();
-                        localHistoryForward.AddLast(currentUrl);
-                    }
-
-                    else if (action=="home"){
-                        if(!startUp){
+                        else if (action=="next")
+                        {
+                            localHistoryBack.AddLast(currentUrl);
+                            localHistoryForward.RemoveLast();
                             localHistoryBack.AddLast(currentUrl);
                         }
+
+                        else if (action=="back"){
+                            localHistoryBack.RemoveLast();
+                            localHistoryForward.AddLast(currentUrl);
+                        }
+
+                        else if (action=="home"){
+                            if(!startUp){
+                                localHistoryBack.AddLast(currentUrl);
+                            }
+                        }
+
+                        else if (action=="reload"){
+                            ShowMessage("Page reloaded.");
+                        }
+
+                        if(!startUp){
+                            currentUrl = url;
+                            await UpdateHistoryAsync();
+                        }
+                        else{
+                            startUp = false;
+                            currentUrl = url;
+                        }
+
+                        return await response.Content.ReadAsStringAsync();
+                    }
+                    else
+                    {
+                        throw new HttpRequestException($"HTTP Error {(int)response.StatusCode}: {response.ReasonPhrase}");
                     }
 
-                    else if (action=="reload"){
-                        ShowMessage("Page reloaded.");
-                    }
-
-                    if(!startUp){
-                        currentUrl = url;
-                        await UpdateHistoryAsync();
-                    }
-                    else{
-                        startUp = false;
-                        currentUrl = url;
-                    }
-
-                    return await response.Content.ReadAsStringAsync();
-                }
-                else
-                {
-                    throw new HttpRequestException($"HTTP Error {(int)response.StatusCode}: {response.ReasonPhrase}");
-                }
+                
+            
+            
             }
+
+
+
         }
         catch (HttpRequestException ex)
         {
