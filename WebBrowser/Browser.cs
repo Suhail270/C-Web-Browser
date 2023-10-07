@@ -60,6 +60,7 @@ public class WebBrowserApp : Window
     private List<string> newHomePage;
     private string[] historyText;
     private Button clearHistoryButton;
+    private Button reloadButton;
 
     private Dictionary<TextTag, string> tagToUrlMap;
 
@@ -93,6 +94,7 @@ public class WebBrowserApp : Window
         historyButton = new Button("History"); // Create the history button
         editHomeButton = new Button("Edit Home");
         clearHistoryButton = new Button("Clear History");
+        reloadButton = new Button("↻");
         
         historyButton.Clicked += HistoryButton_ClickedAsync; // Attach an event handler
         navigateButton.Clicked += NavigateButton_Clicked;
@@ -102,6 +104,7 @@ public class WebBrowserApp : Window
         favouritesButton.Clicked += FavouritesButton_Clicked;
         editHomeButton.Clicked += EditHomeButton_Clicked;
         clearHistoryButton.Clicked += ClearHistoryButton_Clicked;
+        reloadButton.Clicked += ReloadButton_Clicked;
 
         mainVBox.PackStart(mainHBox, false, false, 0);
         mainVBox.PackStart(titleHBox, false, false, 0);
@@ -133,6 +136,7 @@ public class WebBrowserApp : Window
 
         mainHBox.PackStart(backButton, false, false, 0);
         mainHBox.PackStart(forwardButton, false, false, 10);
+        mainHBox.PackStart(reloadButton, false, false, 10);
         mainHBox.PackStart(addressEntry, false, false, 10);
         mainHBox.PackStart(navigateButton, false, false, 10);
         mainHBox.PackStart(homeButton, false, false, 10);
@@ -212,6 +216,10 @@ public class WebBrowserApp : Window
         homeEntry.Visible = false;
         editHomeOkButton.Visible = false;
     }
+
+     private async void ReloadButton_Clicked(object sender, EventArgs e){
+       DisplayWebContent(currentUrl, "reload");
+     }
 
     private async void ClearHistoryButton_Clicked(object sender, EventArgs e){
         string[] history = await ReadHistoryAsync();
@@ -692,7 +700,6 @@ private async void ApplyingHyperlinkTags(string page){
                                 } 
                                 
                                 if(editMode==false){
-                                    Console.Write(navigateText + "test");
                                 DisplayWebContent(navigateText, "nav");
                                 }
                             }
@@ -887,9 +894,7 @@ private async void ApplyingHyperlinkTags(string page){
                                 // favouritesEntry.Text = string.Empty;
                                 // Console.WriteLine("TEXT:");
                                 // Console.WriteLine(favouritesEntry.Text);
-                                newHomePage = new List<string>();
-                                newHomePage.Add(favouritesEntry.Text);
-                                File.WriteAllLines(homePath, newHomePage);
+                                File.WriteAllText(homePath, favouritesEntry.Text);
                                 contentTextView.Buffer.Text = string.Empty;
                                 favouritesEntry.Visible = false;
                                 editHomeOkButton.Visible = false;
@@ -983,7 +988,7 @@ private async void ApplyingHyperlinkTags(string page){
                     }
 
                     else if (action=="reload"){
-
+                        ShowMessage("Page reloaded.");
                     }
 
                     if(!startUp){
