@@ -5,8 +5,9 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
 using System.Collections.Generic;
+using Gdk;
 
-public class WebBrowserApp : Window
+public class WebBrowserApp : Gtk.Window
 {
     private Entry addressEntry;
     private Button navigateButton;
@@ -67,6 +68,13 @@ public class WebBrowserApp : Window
     private string bulkDownloadPath;
     private string[] downloadLines;
     private string bulkDownloadResult;
+    private EventHandler downloadButtonClicked;
+    private bool controlButton;
+    private bool leftArrow;
+    private bool rightArrow;
+    private bool letterH;
+    private bool letterF;
+    private AccelGroup accelGroup;
     public WebBrowserApp() : base("F20SC - CW1")
     {
         SetDefaultSize(900, 700);
@@ -211,13 +219,93 @@ public class WebBrowserApp : Window
         
         mainVBox.PackStart(buttonsGrid, false, false, 0);
 
+        // addressEntry.KeyPressEvent += AddressEntry_KeyPressEvent;
+        EnterKeyClicked(addressEntry, NavigateButton_Clicked, "nav");
+        EnterKeyClicked(bulkDownloadEntry, DownloadButton_Clicked, "bulkDownload");
+
+        // addressEntry.Activated += (s, args) =>
+        // {
+        //     // if (args.Event.Key == Gdk.Key.Return)
+        //     // {
+        //         navigateButton.Click();
+        //     // }
+        // };
+
+        this.KeyPressEvent += MainWindow_KeyPressEvent;
 
         Add(mainVBox);
 
         DeleteEvent += (sender, args) => Application.Quit();
 
+        // EnterKeyClick(addressEntry, navigateButton); 
+
         contentTextView.Buffer.Text = "Enter a URL and click 'Go' to view HTML code.";
     }
+
+    // Define methods with the correct signature
+    private void MainWindow_KeyPressEvent(object o, KeyPressEventArgs args)
+    {
+        if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.r))
+        {
+            // Handle Ctrl+R (reload) action here
+            ReloadButton_Clicked(null, null);
+        }
+
+        else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.h))
+        {
+            // Handle Ctrl+R (reload) action here
+            HomeButton_Clicked(null, null);
+        }
+
+        else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.H))
+        {
+            // Handle Ctrl+R (reload) action here
+            HistoryButton_ClickedAsync(null, null);
+        }
+
+        else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.f))
+        {
+            // Handle Ctrl+R (reload) action here
+            FavouritesButton_Clicked(null, null);
+        }
+
+        else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.d))
+        {
+            // Handle Ctrl+R (reload) action here
+            BulkDownloadButton_Clicked(null, null);
+        }
+
+        else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.z))
+        {
+            // Handle Ctrl+R (reload) action here
+            BackButton_Clicked(null, null);
+        }
+
+        else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.x))
+        {
+            // Handle Ctrl+R (reload) action here
+            ForwardButton_Clicked(null, null);
+        }
+
+        else{
+            return;
+        }
+    }
+
+
+    private void EnterKeyClicked(Entry entry, EventHandler eventHandler, string action)
+    {
+        entry.KeyPressEvent += (o, args) =>
+        {
+            // Check if the pressed key is Enter (keycode 65293)
+            if (args.Event.KeyValue == 65293)
+            {
+                // Perform the desired action by invoking the provided event handler
+                eventHandler(o, EventArgs.Empty);
+            }
+        };
+    }
+
 
     private async void HideButtons(){
         isFavoritesPage = false;
@@ -236,18 +324,7 @@ public class WebBrowserApp : Window
         downloadOkButton.Visible = false;
     }
 
-    private async void BulkDownloadButton_Clicked(object sender, EventArgs e)
-{
-    titleLabel.Text = "Bulk Download";
-    bulkDownloadPath = string.Empty;
-    contentTextView.Buffer.Text = string.Empty;
-    bulkDownloadEntry.Visible = true;
-    bulkDownloadEntry.Text = string.Empty;
-    downloadOkButton.Visible = true;
-
-    EventHandler downloadButtonClicked = null;
-    downloadButtonClicked = async (okSender, okArgs) =>
-    {
+    private async void DownloadButton_Clicked(object sender, EventArgs e){
         downloadOkButton.Clicked -= downloadButtonClicked; // Remove the event handler
         if (bulkDownloadEntry.Text == string.Empty)
         {
@@ -286,9 +363,24 @@ public class WebBrowserApp : Window
 
             contentTextView.Buffer.Text = bulkDownloadResult; // Set the text only once
         }
+        ShowMessage("Bulk download completed.");
+    }
+    private async void BulkDownloadButton_Clicked(object sender, EventArgs e)
+{
+    titleLabel.Text = "Bulk Download";
+    bulkDownloadPath = string.Empty;
+    contentTextView.Buffer.Text = string.Empty;
+    bulkDownloadEntry.Visible = true;
+    bulkDownloadEntry.Text = string.Empty;
+    downloadOkButton.Visible = true;
+    downloadButtonClicked = null;
+
+    downloadButtonClicked = async (okSender, okArgs) =>
+    {
+        DownloadButton_Clicked(okSender, okArgs);
     };
 
-    downloadOkButton.Clicked += downloadButtonClicked; // Register the event handler
+    downloadOkButton.Clicked += downloadButtonClicked;
 }
 
 
@@ -465,6 +557,12 @@ private async void ApplyingHyperlinkTags(string page){
     HideButtons();
     favouritesEntry.Text = string.Empty;
     favouritesTitleEntry.Text = string.Empty;
+
+    if (!File.Exists(favouritesPath))
+        {
+            File.Create(favouritesPath).Close();
+        }
+
     try
     {
         isFavoritesPage = true; // Set the flag to true when on the favorites page
@@ -811,7 +909,7 @@ private async void ApplyingHyperlinkTags(string page){
      {
         HideButtons();
         if (localHistoryBack.Count==0){
-            ShowMessage("No next URL.");
+            ShowMessage("No previous URL.");
         }
         else{
             DisplayWebContent(localHistoryBack.Last.Value, "back");
@@ -905,11 +1003,11 @@ private async void ApplyingHyperlinkTags(string page){
             historyText = await File.ReadAllLinesAsync(historyPath);
             Array.Reverse(historyText);
         }
-
+        
         else{
             File.Create(historyPath).Close();
+            historyText = new string[0];
         }
-
         return historyText;
     }
 
