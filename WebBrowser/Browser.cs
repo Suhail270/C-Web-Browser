@@ -75,6 +75,15 @@ public class WebBrowserApp : Gtk.Window
     private bool letterH;
     private bool letterF;
     private AccelGroup accelGroup;
+    private Button profileButton;
+    private Entry nameEntry;
+    private Entry idEntry;
+    private Entry emailEntry;
+    private Entry phoneEntry;
+    private string profilePath = "profile.txt";
+    private string[] profileText;
+    private Button editProfileButton;
+    private Button editProfileOkButton;
     public WebBrowserApp() : base("F20SC - CW1")
     {
         SetDefaultSize(900, 700);
@@ -108,7 +117,9 @@ public class WebBrowserApp : Gtk.Window
         editHomeButton = new Button("Edit Home");
         clearHistoryButton = new Button("Clear History");
         reloadButton = new Button("↻");
+        profileButton = new Button("Profile");
         bulkDownloadButton = new Button("Bulk Download");
+        editProfileButton = new Button("Edit Profile");
         
         historyButton.Clicked += HistoryButton_ClickedAsync; // Attach an event handler
         navigateButton.Clicked += NavigateButton_Clicked;
@@ -120,6 +131,8 @@ public class WebBrowserApp : Gtk.Window
         clearHistoryButton.Clicked += ClearHistoryButton_Clicked;
         reloadButton.Clicked += ReloadButton_Clicked;
         bulkDownloadButton.Clicked += BulkDownloadButton_Clicked;
+        profileButton.Clicked += ProfileButton_Clicked;
+        // editProfileButton.Clicked += EditProfileButton_Clicked;
 
         mainVBox.PackStart(mainHBox, false, false, 0);
         mainVBox.PackStart(titleHBox, false, false, 0);
@@ -142,6 +155,29 @@ public class WebBrowserApp : Gtk.Window
         bulkDownloadEntry.Visible = false;
         bulkDownloadEntry.WidthChars = 50;
         mainVBox.PackStart(bulkDownloadEntry, false, false, 10);
+
+        nameEntry = new Entry();
+        nameEntry.Visible = false;
+        nameEntry.WidthChars = 50;
+        mainVBox.PackStart(nameEntry, false, false, 10);
+
+        idEntry = new Entry();
+        idEntry.Visible = false;
+        idEntry.WidthChars = 50;
+        mainVBox.PackStart(idEntry, false, false, 10);
+
+        emailEntry = new Entry();
+        emailEntry.Visible = false;
+        emailEntry.WidthChars = 50;
+        mainVBox.PackStart(emailEntry, false, false, 10);
+
+        phoneEntry = new Entry();
+        phoneEntry.Visible = false;
+        phoneEntry.WidthChars = 50;
+        mainVBox.PackStart(phoneEntry, false, false, 10);
+
+        editProfileOkButton = new Button("OK");
+        mainVBox.PackStart(editProfileOkButton, false, false, 10);
         
         downloadOkButton = new Button("OK");
         mainVBox.PackStart(downloadOkButton, false, false, 10);
@@ -160,6 +196,7 @@ public class WebBrowserApp : Gtk.Window
 
         mainHBox.PackStart(backButton, false, false, 0);
         mainHBox.PackStart(forwardButton, false, false, 10);
+        mainHBox.PackStart(profileButton, false, false, 10);
         mainHBox.PackStart(reloadButton, false, false, 10);
         mainHBox.PackStart(addressEntry, false, false, 10);
         mainHBox.PackStart(navigateButton, false, false, 10);
@@ -172,6 +209,7 @@ public class WebBrowserApp : Gtk.Window
         titleHBox.PackStart(titleLabel, false, false, 10);
 
         titleHBox.PackEnd(clearHistoryButton, false, false, 10);
+        titleHBox.PackEnd(editProfileButton, false, false, 10);
 
         var textBuffer = new TextBuffer(null);
         contentTextView.Buffer = textBuffer;
@@ -205,6 +243,7 @@ public class WebBrowserApp : Gtk.Window
         addOkButton.Visible = false;
         editOkButton.Visible = false;
         deleteOkButton.Visible = false;
+        editProfileOkButton.Visible = false;
 
         var alignment = new Alignment(0.5f, 0.0f, 0.0f, 0.0f);
         alignment.Add(buttonsGrid);
@@ -322,6 +361,93 @@ public class WebBrowserApp : Gtk.Window
         editHomeOkButton.Visible = false;
         bulkDownloadEntry.Visible = false;
         downloadOkButton.Visible = false;
+        downloadOkButton.Visible = false;
+        nameEntry.Visible = false;
+        idEntry.Visible = false;
+        emailEntry.Visible = false;
+        phoneEntry.Visible = false;
+        editProfileButton.Visible = false;
+        editProfileOkButton.Visible = false;
+    }
+
+    private async Task<string[]> ReadProfileAsync()
+    {
+        if (File.Exists(profilePath))
+        {
+            profileText = await File.ReadAllLinesAsync(profilePath);
+        }
+    
+        return profileText;
+    }
+    private async void ProfileButton_Clicked(object sender, EventArgs e){
+        HideButtons();
+        contentTextView.Buffer.Text = string.Empty;
+        profileText = await ReadProfileAsync();
+
+        nameEntry.Text = profileText[0];
+        idEntry.Text = profileText[1];
+        emailEntry.Text = profileText[2];
+        phoneEntry.Text = profileText[3];
+        
+        nameEntry.Visible = true;
+        nameEntry.Editable = false;
+
+        idEntry.Visible = true;
+        idEntry.Editable = false;
+
+        emailEntry.Visible = true;
+        emailEntry.Editable = false;
+
+        phoneEntry.Visible = true;
+        phoneEntry.Editable = false;
+
+        editProfileButton.Visible = true;
+
+        editProfileButton.Clicked += async (s, args) =>
+        {
+            editProfileButton.Visible = false;
+            editProfileOkButton.Visible = true;
+
+            nameEntry.Editable = true;
+            idEntry.Editable = true;
+            emailEntry.Editable = true;
+            phoneEntry.Editable = true;
+
+            editProfileOkButton.Clicked += async (okSender, okArgs) =>
+            {
+                if (string.IsNullOrWhiteSpace(nameEntry.Text)){
+                    ShowMessage("Please enter your name.");
+                }
+
+                else if (string.IsNullOrWhiteSpace(idEntry.Text)){
+                    ShowMessage("Please enter your ID.");
+                }
+
+                else if (string.IsNullOrWhiteSpace(emailEntry.Text)){
+                    ShowMessage("Please enter your email.");
+                }
+
+                else if (string.IsNullOrWhiteSpace(phoneEntry.Text)){
+                    ShowMessage("Please enter your phone number.");
+                }
+
+                else{
+                    profileText[0] = nameEntry.Text;
+                    profileText[1] = idEntry.Text;
+                    profileText[2] = emailEntry.Text;
+                    profileText[3] = phoneEntry.Text;
+                    File.WriteAllLines(profilePath, profileText);
+                    editProfileOkButton.Visible = false;
+                    nameEntry.Editable = false;
+                    idEntry.Editable = false;
+                    emailEntry.Editable = false;
+                    phoneEntry.Editable = false;
+                    ShowMessage("Profile updated successfully.");
+                }
+            };
+
+        };
+        
     }
 
     private async void DownloadButton_Clicked(object sender, EventArgs e){
@@ -1264,6 +1390,7 @@ private async void ApplyingHyperlinkTags(string page){
     {
         Application.Init();
         var app = new WebBrowserApp();
+        app.HideButtons();
         app.LoadHomePage();
         app.ShowAll();
         Application.Run();
