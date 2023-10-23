@@ -3,11 +3,12 @@ using System;
 using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
+using HtmlAgilityPack;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using Gdk;
 
-public class WebBrowserApp : Gtk.Window
+namespace WebBrowser.Skeleton{
+    public class WebBrowserApp : Gtk.Window
 {
     private Entry addressEntry;
     private Button navigateButton;
@@ -84,18 +85,7 @@ public class WebBrowserApp : Gtk.Window
     private string[] profileText;
     private Button editProfileButton;
     private Button editProfileOkButton;
-    private Grid buttonsGridProfile;
-    private Button addButtonProfile;
-    private Button editButtonProfile;
-    private Button deleteButtonProfile;
-    private ComboBox comboBox;
-    ListStore listStore;
-    CellRendererText cellRendererText;
-    private Button addProfileOkButton;
-    private Button deleteProfileOkButton;
-    private List<string> deleteProfileList;
-    private List<string> editProfileList;
-    int editIndex;
+
     public WebBrowserApp() : base("F20SC - CW1")
     {
         SetDefaultSize(900, 700);
@@ -107,13 +97,6 @@ public class WebBrowserApp : Gtk.Window
 
         addressEntry = new Entry();
         addressEntry.WidthChars = 50;
-
-        comboBox = new ComboBox();
-        listStore = new ListStore(typeof(string));
-        cellRendererText = new CellRendererText();
-
-        comboBox.PackStart(cellRendererText, true);
-        comboBox.AddAttribute(cellRendererText, "text", 0);
 
         homeEntry = new Entry();
         homeEntry.WidthChars = 50;
@@ -132,7 +115,7 @@ public class WebBrowserApp : Gtk.Window
         contentTextView = new TextView();
         scrolledWindow = new ScrolledWindow();
         titleLabel = new Label();
-        historyButton = new Button("History"); 
+        historyButton = new Button("History");
         editHomeButton = new Button("Edit Home");
         clearHistoryButton = new Button("Clear History");
         reloadButton = new Button("↻");
@@ -154,7 +137,7 @@ public class WebBrowserApp : Gtk.Window
 
         mainVBox.PackStart(mainHBox, false, false, 0);
         mainVBox.PackStart(titleHBox, false, false, 0);
-       
+        
         favouritesTitleEntry = new Entry();
         favouritesTitleEntry.PlaceholderText = "Enter title";
         favouritesTitleEntry.Visible = false;
@@ -172,41 +155,29 @@ public class WebBrowserApp : Gtk.Window
         bulkDownloadEntry.Visible = false;
         bulkDownloadEntry.WidthChars = 50;
         mainVBox.PackStart(bulkDownloadEntry, false, false, 10);
-        
-        mainVBox.PackStart(comboBox, false, false, 10);
 
         nameEntry = new Entry();
-        nameEntry.PlaceholderText = "Enter name";
         nameEntry.Visible = false;
         nameEntry.WidthChars = 50;
         mainVBox.PackStart(nameEntry, false, false, 10);
 
         idEntry = new Entry();
-        idEntry.PlaceholderText = "Enter id";
         idEntry.Visible = false;
         idEntry.WidthChars = 50;
         mainVBox.PackStart(idEntry, false, false, 10);
 
         emailEntry = new Entry();
-        emailEntry.PlaceholderText = "Enter email";
         emailEntry.Visible = false;
         emailEntry.WidthChars = 50;
         mainVBox.PackStart(emailEntry, false, false, 10);
 
         phoneEntry = new Entry();
-        phoneEntry.PlaceholderText = "Enter phone number";
         phoneEntry.Visible = false;
         phoneEntry.WidthChars = 50;
         mainVBox.PackStart(phoneEntry, false, false, 10);
 
-        addProfileOkButton = new Button("OK");
-        mainVBox.PackStart(addProfileOkButton, false, false, 10);
-
         editProfileOkButton = new Button("OK");
         mainVBox.PackStart(editProfileOkButton, false, false, 10);
-
-        deleteProfileOkButton = new Button("OK");
-        mainVBox.PackStart(deleteProfileOkButton, false, false, 10);
         
         downloadOkButton = new Button("OK");
         mainVBox.PackStart(downloadOkButton, false, false, 10);
@@ -238,6 +209,7 @@ public class WebBrowserApp : Gtk.Window
         titleHBox.PackStart(titleLabel, false, false, 10);
 
         titleHBox.PackEnd(clearHistoryButton, false, false, 10);
+        titleHBox.PackEnd(editProfileButton, false, false, 10);
 
         var textBuffer = new TextBuffer(null);
         contentTextView.Buffer = textBuffer;
@@ -246,22 +218,6 @@ public class WebBrowserApp : Gtk.Window
         scrolledWindow.Add(contentTextView);
         mainVBox.PackStart(homeEntry, false, false, 10);
         mainVBox.PackStart(scrolledWindow, true, true, 0);
-
-        buttonsGridProfile = new Grid();
-        buttonsGridProfile.ColumnSpacing = 5;
-        buttonsGridProfile.RowSpacing = 5;
-
-        addButtonProfile = new Button("Add Profile");
-        editButtonProfile = new Button("Edit Profile");
-        deleteButtonProfile = new Button("Delete Profile");
-
-        buttonsGridProfile.Attach(addButtonProfile, 0, 0, 1, 1);
-        buttonsGridProfile.Attach(editProfileButton, 1, 0, 1, 1);
-        buttonsGridProfile.Attach(deleteButtonProfile, 2, 0, 1, 1);
-
-        var alignmentProfile = new Alignment(0.5f, 0.0f, 0.0f, 0.0f);
-        alignmentProfile.Add(buttonsGridProfile);
-        mainVBox.PackStart(alignmentProfile, false, false, 0);
 
         buttonsGrid = new Grid();
         buttonsGrid.ColumnSpacing = 5;
@@ -274,19 +230,6 @@ public class WebBrowserApp : Gtk.Window
         buttonsGrid.Attach(addButton, 0, 0, 1, 1);
         buttonsGrid.Attach(editButton, 1, 0, 1, 1);
         buttonsGrid.Attach(deleteButton, 2, 0, 1, 1);
-
-        addButton.Visible = false;
-        editButton.Visible = false;
-        deleteButton.Visible = false;
-
-        addOkButton.Visible = false;
-        editOkButton.Visible = false;
-        deleteOkButton.Visible = false;
-        editProfileOkButton.Visible = false;
-
-        buttonsGrid = new Grid();
-        buttonsGrid.ColumnSpacing = 5;
-        buttonsGrid.RowSpacing = 5;
 
         var alignment = new Alignment(0.5f, 0.0f, 0.0f, 0.0f);
         alignment.Add(buttonsGrid);
@@ -306,69 +249,67 @@ public class WebBrowserApp : Gtk.Window
         Add(mainVBox);
 
         DeleteEvent += (sender, args) => Application.Quit();
-
         contentTextView.Buffer.Text = "Enter a URL and click 'Go' to view HTML code.";
     }
-    private void MainWindow_KeyPressEvent(object o, KeyPressEventArgs args)
-    {
-        if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.r))
-        {
-            ReloadButton_Clicked(null, null);
-        }
 
-        else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.h))
+    public void MainWindow_KeyPressEvent(object o, KeyPressEventArgs args)
         {
-            HomeButton_Clicked(null, null);
-        }
-
-        else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.H))
-        {
-            HistoryButton_ClickedAsync(null, null);
-        }
-
-        else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.f))
-        {
-            FavouritesButton_Clicked(null, null);
-        }
-
-        else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.d))
-        {
-            BulkDownloadButton_Clicked(null, null);
-        }
-
-        else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.z))
-        {
-            BackButton_Clicked(null, null);
-        }
-
-        else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.x))
-        {
-            ForwardButton_Clicked(null, null);
-        }
-
-        else{
-            return;
-        }
-    }
-    private void EnterKeyClicked(Entry entry, EventHandler eventHandler, string action)
-    {
-        entry.KeyPressEvent += (o, args) =>
-        {
-            if (args.Event.KeyValue == 65293)
+            if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.r))
             {
-                eventHandler(o, EventArgs.Empty);
+                ReloadButton_Clicked(null, null);
             }
-        };
-    }
-    private async void HideButtons(){
+
+            else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.h))
+            {
+                HomeButton_Clicked(null, null);
+            }
+
+            else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.H))
+            {
+                HistoryButton_ClickedAsync(null, null);
+            }
+
+            else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.f))
+            {
+                FavouritesButton_Clicked(null, null);
+            }
+
+            else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.d))
+            {
+                BulkDownloadButton_Clicked(null, null);
+            }
+
+            else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.z))
+            {
+                BackButton_Clicked(null, null);
+            }
+
+            else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.x))
+            {
+                ForwardButton_Clicked(null, null);
+            }
+
+            else{
+                return;
+            }
+        }
+
+        public void EnterKeyClicked(Entry entry, EventHandler eventHandler, string action)
+        {
+            entry.KeyPressEvent += (o, args) =>
+            {
+                if (args.Event.KeyValue == 65293)
+                {
+                    eventHandler(o, EventArgs.Empty);
+                }
+            };
+        }
+    public async void HideButtons(){
         isFavoritesPage = false;
         clearHistoryButton.Visible = false;
         addButton.Visible = false;
         editButton.Visible = false;
         deleteButton.Visible = false;
-        addButtonProfile.Visible = false;
-        editButtonProfile.Visible = false;
-        deleteButtonProfile.Visible = false;
         favouritesEntry.Visible = false;
         favouritesTitleEntry.Visible = false;
         addOkButton.Visible = false;
@@ -384,10 +325,7 @@ public class WebBrowserApp : Gtk.Window
         emailEntry.Visible = false;
         phoneEntry.Visible = false;
         editProfileButton.Visible = false;
-        addProfileOkButton.Visible = false;
         editProfileOkButton.Visible = false;
-        deleteProfileOkButton.Visible = false;
-        comboBox.Visible = false;
     }
 
     private async Task<string[]> ReadProfileAsync()
@@ -400,326 +338,78 @@ public class WebBrowserApp : Gtk.Window
         return profileText;
     }
     private async void ProfileButton_Clicked(object sender, EventArgs e){
-    
-    HideButtons();
+        HideButtons();
+        contentTextView.Buffer.Text = string.Empty;
+        profileText = await ReadProfileAsync();
 
-    titleLabel.Text = "Profile";
+        nameEntry.Text = profileText[0];
+        idEntry.Text = profileText[1];
+        emailEntry.Text = profileText[2];
+        phoneEntry.Text = profileText[3];
+        
+        nameEntry.Visible = true;
+        nameEntry.Editable = false;
 
-    contentTextView.Buffer.Text = string.Empty;
-    profileText = await ReadProfileAsync();
+        idEntry.Visible = true;
+        idEntry.Editable = false;
 
-    if(profileText.Length==0){
-        contentTextView.Buffer.Text = "No profile added.";
-        return;
-    }
+        emailEntry.Visible = true;
+        emailEntry.Editable = false;
 
-    else{
-        int num_profiles = profileText.Length/4;
+        phoneEntry.Visible = true;
+        phoneEntry.Editable = false;
 
-        listStore.Clear();
+        editProfileButton.Visible = true;
 
-        for(int i = 0; i<profileText.Length; i+=4){
-            listStore.AppendValues(profileText[i]);
-        }
-    }
-
-    comboBox.Model = listStore;
-    comboBox.Visible = true;
-
-    addButtonProfile.Visible = true;
-    editButtonProfile.Visible = true;
-    deleteButtonProfile.Visible = true;
-
-    addButtonProfile.Clicked += async (s, args) =>
-    {
-        nameEntry.Text = string.Empty;
-        idEntry.Text = string.Empty;
-        emailEntry.Text = string.Empty;
-        phoneEntry.Text = string.Empty;
-
-        nameEntry.Editable = true;
-        idEntry.Editable = true;
-        emailEntry.Editable = true;
-        phoneEntry.Editable = true;
-
-        titleLabel.Text = "Add Profile";
-
-        addProfileOkButton.Visible = true;
-
-        editProfileOkButton.Visible = false;
-        deleteProfileOkButton.Visible = false;
-
-        addProfileOkButton.Clicked += async (okSender, okArgs) =>
+        editProfileButton.Clicked += async (s, args) =>
         {
-            if (string.IsNullOrWhiteSpace(nameEntry.Text))
+            editProfileButton.Visible = false;
+            editProfileOkButton.Visible = true;
+
+            nameEntry.Editable = true;
+            idEntry.Editable = true;
+            emailEntry.Editable = true;
+            phoneEntry.Editable = true;
+
+            editProfileOkButton.Clicked += async (okSender, okArgs) =>
             {
-                ShowMessage("Please enter your name.");
-            }
-            else if (string.IsNullOrWhiteSpace(idEntry.Text))
-            {
-                ShowMessage("Please enter your ID.");
-            }
-            else if (string.IsNullOrWhiteSpace(emailEntry.Text))
-            {
-                ShowMessage("Please enter your email.");
-            }
-            else if (string.IsNullOrWhiteSpace(phoneEntry.Text))
-            {
-                ShowMessage("Please enter your phone number.");
-            }
-            else
-            {
+                if (string.IsNullOrWhiteSpace(nameEntry.Text)){
+                    ShowMessage("Please enter your name.");
+                }
+
+                else if (string.IsNullOrWhiteSpace(idEntry.Text)){
+                    ShowMessage("Please enter your ID.");
+                }
+
+                else if (string.IsNullOrWhiteSpace(emailEntry.Text)){
+                    ShowMessage("Please enter your email.");
+                }
+
+                else if (string.IsNullOrWhiteSpace(phoneEntry.Text)){
+                    ShowMessage("Please enter your phone number.");
+                }
+
+                else{
                     profileText[0] = nameEntry.Text;
                     profileText[1] = idEntry.Text;
                     profileText[2] = emailEntry.Text;
                     profileText[3] = phoneEntry.Text;
-
-                    File.AppendAllText(profilePath, profileText[0]+"\n");
-                    File.AppendAllText(profilePath, profileText[1]+"\n");
-                    File.AppendAllText(profilePath, profileText[2]+"\n");
-                    File.AppendAllText(profilePath, profileText[3]+"\n");
-
-                    addProfileOkButton.Visible = false;
+                    File.WriteAllLines(profilePath, profileText);
+                    editProfileOkButton.Visible = false;
                     nameEntry.Editable = false;
                     idEntry.Editable = false;
                     emailEntry.Editable = false;
                     phoneEntry.Editable = false;
+                    ShowMessage("Profile updated successfully.");
+                }
+            };
 
-                    listStore.AppendValues(profileText[0]);
-                    comboBox.Model = listStore;
-
-                    profileText = await ReadProfileAsync();
-
-                    nameEntry.Text = string.Empty;
-                    idEntry.Text = string.Empty;
-                    emailEntry.Text = string.Empty;
-                    phoneEntry.Text = string.Empty;
-
-                    ShowMessage("Profile created successfully.");
-                    return;
-            }
         };
-        titleLabel.Text = "Profile";
-    };
-
-            editProfileButton.Clicked += async (s, args) =>
-            {
-                titleLabel.Text = "Edit Profile";
-
-                editProfileOkButton.Visible = true;
-
-                addProfileOkButton.Visible = false;
-                deleteProfileOkButton.Visible = false;
-
-                nameEntry.Editable = true;
-                idEntry.Editable = true;
-                emailEntry.Editable = true;
-                phoneEntry.Editable = true;
-
-                editProfileOkButton.Clicked += async (okSender, okArgs) =>
-                {
-                    if (string.IsNullOrWhiteSpace(nameEntry.Text))
-                    {
-                        ShowMessage("No profile selected to edit, please select a profile from the drop-down menu.");
-                        return;
-                    }
-
-                    if (string.IsNullOrWhiteSpace(nameEntry.Text))
-                    {
-                        ShowMessage("Please enter your name.");
-                    }
-                    else if (string.IsNullOrWhiteSpace(idEntry.Text))
-                    {
-                        ShowMessage("Please enter your ID.");
-                    }
-                    else if (string.IsNullOrWhiteSpace(emailEntry.Text))
-                    {
-                        ShowMessage("Please enter your email.");
-                    }
-                    else if (string.IsNullOrWhiteSpace(phoneEntry.Text))
-                    {
-                        ShowMessage("Please enter your phone number.");
-                    }
-                    else
-                    {
-                        try{
-
-                            editProfileList = new List<string>(profileText);
-
-                            
-                            editProfileList[editIndex] = nameEntry.Text;
-                            editProfileList[editIndex+1] = idEntry.Text;                            
-                            editProfileList[editIndex+2] = emailEntry.Text;
-                            editProfileList[editIndex+3] = phoneEntry.Text;
-
-                            profileText = editProfileList.ToArray();
-                            File.WriteAllLines(profilePath, profileText);
-
-                            editProfileOkButton.Visible = false;
-                            nameEntry.Editable = false;
-                            idEntry.Editable = false;
-                            emailEntry.Editable = false;
-                            phoneEntry.Editable = false;
-
-                            profileText = await ReadProfileAsync();
-
-                            listStore.Clear();
-
-                            for(int i = 0; i<profileText.Length; i+=4){
-                                listStore.AppendValues(profileText[i]);
-                            }
-
-                            comboBox.Model = listStore;
-
-                            nameEntry.Text = string.Empty;
-                            idEntry.Text = string.Empty;
-                            emailEntry.Text = string.Empty;
-                            phoneEntry.Text = string.Empty;
-
-                            ShowMessage("Profile updated successfully.");
-
-                        }
-
-                    catch (Exception ex)
-                    {
-                        contentTextView.Buffer.Text = $"Error: {ex.Message}";
-                        titleLabel.Text = string.Empty;
-                    }
-                    }
-                };
-                titleLabel.Text = "Profile";
-            };
-
-            deleteButtonProfile.Clicked += async (s, args) =>
-            {
-
-                titleLabel.Text = "Delete Profile";
-
-                deleteProfileOkButton.Visible = true;
-
-                editProfileOkButton.Visible = false;
-                addProfileOkButton.Visible = false;
-
-                deleteProfileOkButton.Clicked += async (okSender, okArgs) =>
-                {
-                    if (string.IsNullOrWhiteSpace(nameEntry.Text))
-                    {
-                        ShowMessage("No profile selected to delete, please select a profile from the drop-down menu.");
-                        return;
-                    }
-
-                    if(!dialogDisplayed){
-                        using (var dialog = new MessageDialog(
-                        this,
-                        DialogFlags.Modal,
-                        MessageType.Question,
-                        ButtonsType.YesNo,
-                        $"Are you sure you want to delete {nameEntry.Text} from your profiles list?")
-                    )
-
-                    {
-                        dialog.Title = "Delete Profile";
-                        dialog.WindowPosition = WindowPosition.Center;
-
-                        dialogDisplayed = true;
-
-                        ResponseType response = (ResponseType)dialog.Run();
-
-                        if (response == ResponseType.Yes)
-                        {
-                            deleteProfileList = new List<string>(profileText);
-                            int deleteIndex = deleteProfileList.IndexOf(nameEntry.Text);
-
-                            deleteProfileList.RemoveAt(deleteIndex);
-                            deleteProfileList.RemoveAt(deleteIndex);
-                            deleteProfileList.RemoveAt(deleteIndex);
-                            deleteProfileList.RemoveAt(deleteIndex);
-
-                            profileText = deleteProfileList.ToArray();
-
-                            File.WriteAllLines(profilePath, profileText);
-
-                            profileText = await ReadProfileAsync();
-                            
-                            listStore.Clear();
-
-                            for(int i = 0; i<profileText.Length; i+=4){
-                                listStore.AppendValues(profileText[i]);
-                            }
-
-                            comboBox.Model = listStore;
-
-                            nameEntry.Text = string.Empty;
-                            idEntry.Text = string.Empty;
-                            emailEntry.Text = string.Empty;
-                            phoneEntry.Text = string.Empty;
-
-                            deleteOkButton.Visible = false;
-                            dialog.Hide();
-                            ShowMessage("Profile deleted successfully.");
-                        }
-                        else{
-                            dialog.Hide();
-                            return;
-                        }  
-                        }
-                };
-            };
-            titleLabel.Text = "Profile";
-            };
-
-    
-    comboBox.Changed += (sender, args) =>
-    {
-
-        TreeIter iter;
-        if (comboBox.GetActiveIter(out iter))
-
-        {
-            string activeText = (string)listStore.GetValue(iter, 0);
-            int selectedIndex = Array.IndexOf(profileText, activeText);
-
-            while(string.IsNullOrWhiteSpace(activeText)){
-
-            }
-
-            editIndex = Array.IndexOf(profileText, activeText);
-
-            try{
-                nameEntry.Text = profileText[selectedIndex];
-                idEntry.Text = profileText[selectedIndex+1];
-                emailEntry.Text = profileText[selectedIndex+2];
-                phoneEntry.Text = profileText[selectedIndex+3];
-            }
-
-            catch (Exception ex)
-            {
-                contentTextView.Buffer.Text = $"Error: {ex.Message}";
-                titleLabel.Text = string.Empty;
-            }
-
-    };
-    };
-
-    nameEntry.Text = string.Empty;
-    idEntry.Text = string.Empty;
-    emailEntry.Text = string.Empty;
-    phoneEntry.Text = string.Empty;
-
-    nameEntry.Visible = true;
-    nameEntry.Editable = false;
-    idEntry.Visible = true;
-    idEntry.Editable = false;
-    emailEntry.Visible = true;
-    emailEntry.Editable = false;
-    phoneEntry.Visible = true;
-    phoneEntry.Editable = false;
-    editProfileButton.Visible = true;
         
     }
 
     private async void DownloadButton_Clicked(object sender, EventArgs e){
-        downloadOkButton.Clicked -= downloadButtonClicked;
+        downloadOkButton.Clicked -= downloadButtonClicked; // Remove the event handler
         if (bulkDownloadEntry.Text == string.Empty)
         {
             bulkDownloadEntry.Text = "bulk.txt";
@@ -755,148 +445,12 @@ public class WebBrowserApp : Gtk.Window
                 }
             }
 
-            contentTextView.Buffer.Text = bulkDownloadResult;
+            contentTextView.Buffer.Text = bulkDownloadResult; // Set the text only once
         }
         ShowMessage("Bulk download completed.");
     }
-    private async void BulkDownloadButton_Clicked(object sender, EventArgs e)
-{
-    titleLabel.Text = "Bulk Download";
-    bulkDownloadPath = string.Empty;
-    contentTextView.Buffer.Text = string.Empty;
-    bulkDownloadEntry.Visible = true;
-    bulkDownloadEntry.Text = string.Empty;
-    downloadOkButton.Visible = true;
-    downloadButtonClicked = null;
 
-    downloadButtonClicked = async (okSender, okArgs) =>
-    {
-        DownloadButton_Clicked(okSender, okArgs);
-    };
-
-    downloadOkButton.Clicked += downloadButtonClicked;
-}
-
-    private async void ReloadButton_Clicked(object sender, EventArgs e){
-       DisplayWebContent(currentUrl, "reload");
-     }
-
-    private async void ClearHistoryButton_Clicked(object sender, EventArgs e){
-        string[] history = await ReadHistoryAsync();
-
-        if (history.Length==0){
-            ShowMessage("History is already empty.");
-        }
-
-        else{
-            dialogDisplayed = false;
-            if(!dialogDisplayed){
-                        using (var dialog = new MessageDialog(
-                        this,
-                        DialogFlags.Modal,
-                        MessageType.Question,
-                        ButtonsType.YesNo,
-                        $"Are you sure you want to clear your history? This is a non-reversible action.")
-                    )
-                    {
-                        dialog.Title = "Clear History";
-                        dialog.WindowPosition = WindowPosition.Center;
-
-                        dialogDisplayed = true;
-
-                        ResponseType response = (ResponseType)dialog.Run();
-
-                        if (response == ResponseType.Yes)
-                        {
-                            File.WriteAllText(historyPath, string.Empty);
-                            dialog.Hide();
-                            dialogDisplayed = false;      
-                        }
-                        else{
-                            dialog.Hide();
-                            dialogDisplayed = false;
-                            return;
-                        }  
-                        }
-                    contentTextView.Buffer.Text = "History is empty.";
-                    ShowMessage("History cleared sucessfully.");
-                };
-
-        }
-        }
-
-    private async void AddButton_Clicked(object sender, EventArgs e){
-        favourites = await File.ReadAllLinesAsync(favouritesPath);
-
-        if (!string.IsNullOrWhiteSpace(favouritesEntry.Text) && Uri.IsWellFormedUriString(favouritesEntry.Text, UriKind.Absolute)){
-            
-            if (favourites.Any(f => f == favouritesEntry.Text))
-            {
-                ShowMessage("This URL already exists in favorites.");
-                return;
-            }
-        
-        File.AppendAllText(favouritesPath, favouritesEntry.Text+"\n");
-        }
-
-        }
-
-    private async Task<bool> Validation(string url){
-        try
-        {
-            if(Uri.IsWellFormedUriString(url, UriKind.Absolute)){
-                using (HttpClient client = new HttpClient())
-                {
-                    HttpResponseMessage response = await client.GetAsync(url);
-                    return true;
-                }
-            }
-            return false;
-        }
-        catch (HttpRequestException ex)
-        {
-            return false;
-        }
-    }
-private async void ApplyingHyperlinkTags(string page){
-        
-        if(page=="favourites"){
-            titleLabel.Text = "Favourites";
-            favourites = await ReadFavouritesAsync();
-        }
-        else{
-            titleLabel.Text = "History";
-            favourites = await ReadHistoryAsync();
-        }
-        string favouritesText = string.Join("\n", favourites);
-
-        if (favouritesText.Length==0){
-            contentTextView.Buffer.Text = "No favourites added.";
-            return;
-        }
-            contentTextView.Buffer.Text = favouritesText;
-
-            var hyperlinkTag = contentTextView.Buffer.TagTable.Lookup("hyperlink");
-
-            if (hyperlinkTag == null)
-            {
-                hyperlinkTag = new TextTag("hyperlink");
-            }
-
-            hyperlinkTag.Underline = Pango.Underline.Single;
-            contentTextView.Buffer.TagTable.Add(hyperlinkTag);
-
-            int startOffset = 0;
-            foreach (var line in favourites)
-            {
-                int endOffset = startOffset + line.Length;
-                contentTextView.Buffer.ApplyTag(hyperlinkTag, contentTextView.Buffer.GetIterAtOffset(startOffset), contentTextView.Buffer.GetIterAtOffset(endOffset));
-                startOffset = endOffset + 1;
-            }
-
-    }
-
-    private async void FavouritesButton_Clicked(object sender, EventArgs e)
+            public async void FavouritesButton_Clicked(object sender, EventArgs e)
 {   
     HideButtons();
     favouritesEntry.Text = string.Empty;
@@ -919,7 +473,6 @@ private async void ApplyingHyperlinkTags(string page){
 
             addButton.Clicked += (sender, args) =>
         {
-            
             favouritesEntry.Visible = true;
             favouritesTitleEntry.Visible = true;
             addOkButton.Visible = true;
@@ -978,7 +531,7 @@ private async void ApplyingHyperlinkTags(string page){
 
             titleLabel.Text = "Edit Favourites";
             ShowMessage("Please select the URL to edit.");
-            
+
                 navigateText = "";
                 titleText = "";
                 editOkButton.Clicked += async (okSender, okArgs) =>
@@ -1006,6 +559,7 @@ private async void ApplyingHyperlinkTags(string page){
                     }
                     
                 };
+
             favouritesEntry.Text = string.Empty;
         };
 
@@ -1018,9 +572,9 @@ private async void ApplyingHyperlinkTags(string page){
             deleteOkButton.Visible = true;
             titleLabel.Text = "Delete Favourites";
             dialogDisplayed = false;
- 
+
             ShowMessage("Please select the URL to delete.");
-           
+
                 deleteOkButton.Clicked += async (okSender, okArgs) =>
                 {
                     if(!dialogDisplayed){
@@ -1092,13 +646,14 @@ private async void ApplyingHyperlinkTags(string page){
                                     end++;
                                 }
 
+                                // Extract the URL from the clicked link
                                 selectedText = contentTextView.Buffer.GetText(contentTextView.Buffer.GetIterAtOffset(start + 1), contentTextView.Buffer.GetIterAtOffset(end), false);
                                 navigateText = "";
                                 
                                 for(int i = 0; i<selectedText.Length; i++){
                                     if(selectedText[i]==':'){
                                         navigateText = selectedText.Substring(i+2, selectedText.Length - (i + 2));
-
+                                        // Console.Write(selectedText[i]);
                                         if (editMode==true){
                                             favouritesTitleEntry.Text = selectedText.Substring(0, i);
                                             favouritesEntry.Text = selectedText.Substring(i+2, selectedText.Length - (i + 2));
@@ -1107,6 +662,7 @@ private async void ApplyingHyperlinkTags(string page){
                                         break;
                                     }
                                 } 
+                                
                                 if(editMode==false){
                                 DisplayWebContent(navigateText, "nav");
                                 }
@@ -1123,7 +679,7 @@ private async void ApplyingHyperlinkTags(string page){
     }
 }
 
-    private async Task<string[]> ReadFavouritesAsync()
+    public async Task<string[]> ReadFavouritesAsync()
     {
         if (File.Exists(favouritesPath))
         {
@@ -1132,8 +688,153 @@ private async void ApplyingHyperlinkTags(string page){
 
         return new string[0];
     }
+
+    public async void BulkDownloadButton_Clicked(object sender, EventArgs e)
+{
+    titleLabel.Text = "Bulk Download";
+    bulkDownloadPath = string.Empty;
+    contentTextView.Buffer.Text = string.Empty;
+    bulkDownloadEntry.Visible = true;
+    bulkDownloadEntry.Text = string.Empty;
+    downloadOkButton.Visible = true;
+    downloadButtonClicked = null;
+
+    downloadButtonClicked = async (okSender, okArgs) =>
+    {
+        DownloadButton_Clicked(okSender, okArgs);
+    };
+
+    downloadOkButton.Clicked += downloadButtonClicked;
+}
+
+
+
+    public async void ReloadButton_Clicked(object sender, EventArgs e){
+       DisplayWebContent(currentUrl, "reload");
+     }
+
+    private async void ClearHistoryButton_Clicked(object sender, EventArgs e){
+        string[] history = await ReadHistoryAsync();
+
+        if (history.Length==0){
+            ShowMessage("History is already empty.");
+        }
+
+        else{
+
+            if(!dialogDisplayed){
+                        using (var dialog = new MessageDialog(
+                        this,
+                        DialogFlags.Modal,
+                        MessageType.Question,
+                        ButtonsType.YesNo,
+                        $"Are you sure you want to clear your history? This is a non-reversible action.")
+                    )
+                    {
+                        dialog.Title = "Clear History";
+                        dialog.WindowPosition = WindowPosition.Center;
+
+                        dialogDisplayed = true;
+
+                        ResponseType response = (ResponseType)dialog.Run();
+
+                        if (response == ResponseType.Yes)
+                        {
+                            File.WriteAllText(historyPath, string.Empty);
+                            dialog.Hide();
+                            dialogDisplayed = false;      
+                        }
+                        else{
+                            dialog.Hide();
+                            dialogDisplayed = false;
+                            return;
+                        }  
+                        }
+                    contentTextView.Buffer.Text = "History is empty.";
+                    ShowMessage("History cleared sucessfully.");
+                };
+
+        }
+
+
+        }
+
+    private async void AddButton_Clicked(object sender, EventArgs e){
+        favourites = await File.ReadAllLinesAsync(favouritesPath);
+
+        if (!string.IsNullOrWhiteSpace(favouritesEntry.Text) && Uri.IsWellFormedUriString(favouritesEntry.Text, UriKind.Absolute)){
+            
+            if (favourites.Any(f => f == favouritesEntry.Text))
+            {
+                ShowMessage("This URL already exists in favorites.");
+                return;
+            }
+        
+        File.AppendAllText(favouritesPath, favouritesEntry.Text+"\n");
+        }
+
+        }
+
+    private async Task<bool> Validation(string url){
+        try
+        {
+            if(Uri.IsWellFormedUriString(url, UriKind.Absolute)){
+                using (HttpClient client = new HttpClient())
+                {
+                    HttpResponseMessage response = await client.GetAsync(url);
+                    return true;
+                }
+            }
+            return false;
+        }
+        catch (HttpRequestException ex)
+        {
+            return false;
+        }
+    }
+
+private async void ApplyingHyperlinkTags(string page){
+        
+        if(page=="favourites"){
+            titleLabel.Text = "Favourites";
+            favourites = await ReadFavouritesAsync();
+        }
+        else{
+            titleLabel.Text = "History";
+            favourites = await ReadHistoryAsync();
+        }
+        string favouritesText = string.Join("\n", favourites);
+
+        if (favouritesText.Length==0){
+            contentTextView.Buffer.Text = "No favourites added.";
+            return;
+        }
+            contentTextView.Buffer.Text = favouritesText;
+
+            var hyperlinkTag = contentTextView.Buffer.TagTable.Lookup("hyperlink");
+
+            // If it doesn't exist, create a new "hyperlink" tag
+            if (hyperlinkTag == null)
+            {
+                hyperlinkTag = new TextTag("hyperlink");
+            }
+
+            hyperlinkTag.Underline = Pango.Underline.Single;
+            contentTextView.Buffer.TagTable.Add(hyperlinkTag);
+
+            // Apply the hyperlink tag to specific text portions
+            // var buffer = contentTextView.Buffer;
+            int startOffset = 0;
+            foreach (var line in favourites)
+            {
+                int endOffset = startOffset + line.Length;
+                contentTextView.Buffer.ApplyTag(hyperlinkTag, contentTextView.Buffer.GetIterAtOffset(startOffset), contentTextView.Buffer.GetIterAtOffset(endOffset));
+                startOffset = endOffset + 1;
+            }
+
+    }
     
-     private void BackButton_Clicked(object sender, EventArgs e)
+     public void BackButton_Clicked(object sender, EventArgs e) //Need to update previous and next lists in the displaywebcontent function
      {
         HideButtons();
         if (localHistoryBack.Count==0){
@@ -1144,7 +845,7 @@ private async void ApplyingHyperlinkTags(string page){
         }
     }
 
-    private async void ForwardButton_Clicked(object sender, EventArgs e)
+    public async void ForwardButton_Clicked(object sender, EventArgs e)
      {
         HideButtons();
 
@@ -1156,7 +857,7 @@ private async void ApplyingHyperlinkTags(string page){
         }
     }
 
-    private async void HistoryButton_ClickedAsync(object sender, EventArgs e)
+    public async void HistoryButton_ClickedAsync(object sender, EventArgs e)
     {
         try
         {
@@ -1181,9 +882,11 @@ private async void ApplyingHyperlinkTags(string page){
                         {
                             if (tag.Name == "hyperlink")
                             {
+                                // Handle the hyperlink click
                                 int start = iter.Offset;
                                 int end = iter.Offset;
 
+                                // Find the start and end of the clicked link
                                 while (start >= 0 && contentTextView.Buffer.GetIterAtOffset(start).HasTag(tag))
                                 {
                                     start--;
@@ -1194,7 +897,12 @@ private async void ApplyingHyperlinkTags(string page){
                                     end++;
                                 }
 
+                                // Extract the URL from the clicked link
                                 selectedText = contentTextView.Buffer.GetText(contentTextView.Buffer.GetIterAtOffset(start + 1), contentTextView.Buffer.GetIterAtOffset(end), false);
+                                // navigateText = "";
+                                
+                                // Console.Write(selectedText);
+                                
                                 DisplayWebContent(selectedText, "nav");
                                 
                             }
@@ -1238,24 +946,25 @@ private async void ApplyingHyperlinkTags(string page){
         return downloadLines;
     }
 
-    private void ShowMessage(string message)
-    {
-        GLib.Idle.Add(() =>
-        {
-            var messageDialog = new MessageDialog(
-                this,
-                DialogFlags.Modal,
-                MessageType.Info,
-                ButtonsType.Ok,
-                message
-            );
-            messageDialog.Run();
-            messageDialog.Destroy();
-            return false;
-        });
-    }
 
-    private void HomeButton_Clicked(object sender, EventArgs e)
+    private void ShowMessage(string message)
+{
+    GLib.Idle.Add(() =>
+    {
+        var messageDialog = new MessageDialog(
+            this,
+            DialogFlags.Modal,
+            MessageType.Info,
+            ButtonsType.Ok,
+            message
+        );
+        messageDialog.Run();
+        messageDialog.Destroy();
+        return false;
+    });
+}
+
+    public void HomeButton_Clicked(object sender, EventArgs e)
     {
         HideButtons();
         LoadHomePage();
@@ -1273,6 +982,7 @@ private async void ApplyingHyperlinkTags(string page){
         {
             if (!string.IsNullOrWhiteSpace(favouritesEntry.Text))
                     {
+                        // ShowMessage("Entry bar is empty.");
                         valid = await Validation(favouritesEntry.Text);
                     
                         if (!valid)
@@ -1280,34 +990,56 @@ private async void ApplyingHyperlinkTags(string page){
                             ShowMessage("Invalid URL.");
                             favouritesEntry.Text = string.Empty;
                             favouritesTitleEntry.Text = string.Empty;
+                            // favouritesEntry.Text = string.Empty;
                         }
                         else
                         {
+                            // Find and update the selected hyperlink in the 'favourites' array
+                            
+                            // if (selectedIndex >= 0)
+                            // {
+                                // favourites[favouritesIndex] = favouritesEntry.Text;
+                                // File.WriteAllLines(homePath, favouritesEntry.Text);
+                                // favouritesEntry.Text = string.Empty;
+                                // Console.WriteLine("TEXT:");
+                                // Console.WriteLine(favouritesEntry.Text);
                                 File.WriteAllText(homePath, favouritesEntry.Text);
                                 contentTextView.Buffer.Text = string.Empty;
                                 favouritesEntry.Visible = false;
                                 editHomeOkButton.Visible = false;
                                 ShowMessage("Home page updated, you have been redirected to your new home page.");
                                 LoadHomePage();
+                                // favourites = await ReadFavouritesAsync();
+                            // }
                         }
                     }
         };
+
+
     }
 
     private async void DisplayWebContent(string url, string action){
 
         HideButtons();
 
+        // if (!Uri.IsWellFormedUriString(url, UriKind.Absolute))
+        // {
+        //     ShowMessage("Invalid URL.");
+        //     return;
+        // }
+
         try
         {
             string content = await FetchWebContentAsync(url, action);
             addressEntry.Text = url;
 
+            // Display the HTML code in the TextView
             contentTextView.Buffer.Text = content;
-
+            // Display the HTTP response status code
             string statusCode = $"HTTP Status Code: {currentUrl}";
             titleLabel.Text = statusCode;
 
+            // Parse the title of the web page and display it
             string title = GetWebPageTitle(content);
             if (!string.IsNullOrWhiteSpace(title))
             {
@@ -1385,7 +1117,14 @@ private async void ApplyingHyperlinkTags(string page){
                     {
                         throw new HttpRequestException($"HTTP Error {(int)response.StatusCode}: {response.ReasonPhrase}");
                     }
+
+                
+            
+            
             }
+
+
+
         }
         catch (HttpRequestException ex)
         {
@@ -1393,7 +1132,7 @@ private async void ApplyingHyperlinkTags(string page){
         }
     }
 
-    private async void LoadHomePage()
+    public async void LoadHomePage()
     {
         try
         {
@@ -1439,31 +1178,16 @@ private async void ApplyingHyperlinkTags(string page){
     {
         try
         {
-            string titlePattern = @"<title\b[^>]*>(.*?)</title>";
-            var match = Regex.Match(htmlContent, titlePattern, RegexOptions.IgnoreCase);
-
-            if (match.Success)
-            {
-                return match.Groups[1].Value;
-            }
-            else
-            {
-                return addressEntry.Text;
-            }
+            var htmlDocument = new HtmlDocument();
+            htmlDocument.LoadHtml(htmlContent);
+            var titleNode = htmlDocument.DocumentNode.SelectSingleNode("//title");
+            return titleNode?.InnerText;
         }
         catch
         {
-            return addressEntry.Text;
+            return null;
         }
     }
 
-    public static void Main(string[] args)
-    {
-        Application.Init();
-        var app = new WebBrowserApp();
-        app.HideButtons();
-        app.LoadHomePage();
-        app.ShowAll();
-        Application.Run();
-    }
+}
 }
