@@ -268,32 +268,17 @@ public class WebBrowserApp : Gtk.Window
         buttonsGrid.ColumnSpacing = 5;
         buttonsGrid.RowSpacing = 5;
 
-        addButton = new Button("Add Favorite");
-        editButton = new Button("Edit Favorite");
-        deleteButton = new Button("Delete Favorite");
+        addButton = new Button("Add Favourite");
+        editButton = new Button("Edit Favourite");
+        deleteButton = new Button("Delete Favourite");
 
         buttonsGrid.Attach(addButton, 0, 0, 1, 1);
         buttonsGrid.Attach(editButton, 1, 0, 1, 1);
         buttonsGrid.Attach(deleteButton, 2, 0, 1, 1);
 
-        addButton.Visible = false;
-        editButton.Visible = false;
-        deleteButton.Visible = false;
-
-        addOkButton.Visible = false;
-        editOkButton.Visible = false;
-        deleteOkButton.Visible = false;
-        editProfileOkButton.Visible = false;
-
-        buttonsGrid = new Grid();
-        buttonsGrid.ColumnSpacing = 5;
-        buttonsGrid.RowSpacing = 5;
-
         var alignment = new Alignment(0.5f, 0.0f, 0.0f, 0.0f);
         alignment.Add(buttonsGrid);
         mainVBox.PackStart(alignment, false, false, 0);
-
-        addButton.Clicked += AddButton_Clicked;
 
         scrolledWindow.AddWithViewport(contentTextView);
         
@@ -900,7 +885,7 @@ private async void ApplyingHyperlinkTags(string page){
                 startOffset = endOffset + 1;
             }
 
-    }
+}
 
     private async void FavouritesButton_Clicked(object sender, EventArgs e)
 {   
@@ -916,7 +901,7 @@ private async void ApplyingHyperlinkTags(string page){
     try
     {
         isFavoritesPage = true;
-
+        
         addButton.Visible = true;
         editButton.Visible = true;
         deleteButton.Visible = true;
@@ -1429,12 +1414,22 @@ private async void ApplyingHyperlinkTags(string page){
 
     private async Task<string> ReadHomePageAsync()
     {
-        if (File.Exists(homePath))
-        {
+        try{
+            if (!File.Exists(homePath))
+            {
+                File.Create(favouritesPath).Close();
+                File.WriteAllText(homePath, "https://www.hw.ac.uk");
+            }
+            
             return await File.ReadAllTextAsync(homePath);
         }
 
-        return string.Empty;
+        catch (Exception ex)
+        {
+            contentTextView.Buffer.Text = $"Error: {ex.Message}";
+            titleLabel.Text = string.Empty;
+            return string.Empty;
+        }
     }
 
     private async Task<string> UpdateHistoryAsync()
