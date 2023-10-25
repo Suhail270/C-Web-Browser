@@ -95,7 +95,8 @@ public class WebBrowserApp : Gtk.Window
     private Button deleteProfileOkButton;
     private List<string> deleteProfileList;
     private List<string> editProfileList;
-    int editIndex;
+    private int editIndex;
+    private int statusCode;
     public WebBrowserApp() : base("F20SC - CW1")
     {
         SetDefaultSize(900, 700);
@@ -344,6 +345,11 @@ public class WebBrowserApp : Gtk.Window
         else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.x))
         {
             ForwardButton_Clicked(null, null);
+        }
+
+        else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.p))
+        {
+            ProfileButton_Clicked(null, null);
         }
 
         else{
@@ -1305,13 +1311,17 @@ private async void ApplyingHyperlinkTags(string page){
 
             contentTextView.Buffer.Text = content;
 
-            string statusCode = $"HTTP Status Code: {currentUrl}";
-            titleLabel.Text = statusCode;
+            string statusCodeText = $"HTTP Status Code: {statusCode}";
+            titleLabel.Text = statusCodeText;
 
             string title = GetWebPageTitle(content);
             if (!string.IsNullOrWhiteSpace(title))
             {
                 titleLabel.Text += $" - Title: {title}";
+            }
+
+            else{
+                titleLabel.Text += $" - Title: {currentUrl}";
             }
 
         }
@@ -1338,6 +1348,8 @@ private async void ApplyingHyperlinkTags(string page){
             {
                 
                 HttpResponseMessage response = await client.GetAsync(url);
+
+                statusCode = (int) response.StatusCode;
                 
 
                     if (response.IsSuccessStatusCode)
@@ -1383,7 +1395,7 @@ private async void ApplyingHyperlinkTags(string page){
                     }
                     else
                     {
-                        throw new HttpRequestException($"HTTP Error {(int)response.StatusCode}: {response.ReasonPhrase}");
+                        throw new HttpRequestException($"HTTP Error {statusCode}: {response.ReasonPhrase}");
                     }
             }
         }
