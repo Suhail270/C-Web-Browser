@@ -1,28 +1,12 @@
-Suhail Ahmed
-H00384341
-sb2050@hw.ac.uk
-0501234567
-Victor Verde
-H0056459
-viticox@gmail.com
-9483049
-Anshul Raj
-H003843789
-12433
-anshul@gmail.com
-Mohamed Tahir
-H892438230
-siudhaoi@alwsdj
-139043
-Mujtaba Mohimtulay
-H00384341
-sb2050@hw.ac.uk
-0501234567
-Asmitha Krishnakumar
-H00894329
-asmitha@gmail.com
-058943983204
-Archisa Kar
-H83928903
-archisa@gmail.com
-05638727338
+test
+23
+ds2
+3
+test2
+sf
+2
+3
+tre
+tre
+3
+4

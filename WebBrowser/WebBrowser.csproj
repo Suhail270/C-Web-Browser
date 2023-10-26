@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <PackageReference Include="GtkSharp" Version="3.24.24.95" />
-    <PackageReference Include="HtmlAgilityPack" Version="1.11.53" />
   </ItemGroup>
 
 </Project>

@@ -383,11 +383,11 @@ public class WebBrowserApp : Gtk.Window
 
     private async Task<string[]> ReadProfileAsync()
     {
-        if (File.Exists(profilePath))
+        if (!File.Exists(profilePath))
         {
-            profileText = await File.ReadAllLinesAsync(profilePath);
+            File.Create(profilePath).Close();
         }
-    
+        profileText = (await File.ReadAllLinesAsync(profilePath)).Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
         return profileText;
     }
     private async void ProfileButton_Clicked(object sender, EventArgs e){
@@ -401,7 +401,7 @@ public class WebBrowserApp : Gtk.Window
 
     if(profileText.Length==0){
         contentTextView.Buffer.Text = "No profile added.";
-        return;
+
     }
 
     else{
@@ -460,15 +460,39 @@ public class WebBrowserApp : Gtk.Window
             }
             else
             {
-                    profileText[0] = nameEntry.Text;
-                    profileText[1] = idEntry.Text;
-                    profileText[2] = emailEntry.Text;
-                    profileText[3] = phoneEntry.Text;
+                    if (profileText.Count() == 0)
+                    {
+                        File.AppendAllText(profilePath, nameEntry.Text+"\n");
+                        File.AppendAllText(profilePath, idEntry.Text+"\n");
+                        File.AppendAllText(profilePath, emailEntry.Text+"\n");
+                        File.AppendAllText(profilePath, phoneEntry.Text+"\n");
 
-                    File.AppendAllText(profilePath, profileText[0]+"\n");
-                    File.AppendAllText(profilePath, profileText[1]+"\n");
-                    File.AppendAllText(profilePath, profileText[2]+"\n");
-                    File.AppendAllText(profilePath, profileText[3]+"\n");
+                        listStore.AppendValues(nameEntry.Text);
+
+                        nameEntry.Text = string.Empty;
+                        idEntry.Text = string.Empty;
+                        emailEntry.Text = string.Empty;
+                        phoneEntry.Text = string.Empty;
+                    }
+
+                    else{
+                        profileText[0] = nameEntry.Text;
+                        profileText[1] = idEntry.Text;
+                        profileText[2] = emailEntry.Text;
+                        profileText[3] = phoneEntry.Text;
+
+                        File.AppendAllText(profilePath, profileText[0]+"\n");
+                        File.AppendAllText(profilePath, profileText[1]+"\n");
+                        File.AppendAllText(profilePath, profileText[2]+"\n");
+                        File.AppendAllText(profilePath, profileText[3]+"\n");
+
+                        listStore.AppendValues(profileText[0]);
+
+                        nameEntry.Text = string.Empty;
+                        idEntry.Text = string.Empty;
+                        emailEntry.Text = string.Empty;
+                        phoneEntry.Text = string.Empty;
+                    }
 
                     addProfileOkButton.Visible = false;
                     nameEntry.Editable = false;
@@ -476,15 +500,9 @@ public class WebBrowserApp : Gtk.Window
                     emailEntry.Editable = false;
                     phoneEntry.Editable = false;
 
-                    listStore.AppendValues(profileText[0]);
                     comboBox.Model = listStore;
 
                     profileText = await ReadProfileAsync();
-
-                    nameEntry.Text = string.Empty;
-                    idEntry.Text = string.Empty;
-                    emailEntry.Text = string.Empty;
-                    phoneEntry.Text = string.Empty;
 
                     ShowMessage("Profile created successfully.");
                     return;
@@ -741,7 +759,7 @@ public class WebBrowserApp : Gtk.Window
                     }
                     else
                     {
-                        bulkDownloadResult += (url + " - Invalid URL.");
+                        bulkDownloadResult += (url + " - Invalid URL.\n");
                     }
                 }
             }
@@ -893,11 +911,6 @@ private async void ApplyingHyperlinkTags(string page){
     favouritesEntry.Text = string.Empty;
     favouritesTitleEntry.Text = string.Empty;
 
-    if (!File.Exists(favouritesPath))
-        {
-            File.Create(favouritesPath).Close();
-        }
-
     try
     {
         isFavoritesPage = true;
@@ -948,9 +961,7 @@ private async void ApplyingHyperlinkTags(string page){
                     favouritesEntry.Text = string.Empty;
                     favouritesTitleEntry.Text = string.Empty;
                     ApplyingHyperlinkTags("favourites");
-                }
-
-                
+                }             
                 };
                 
         };
@@ -1116,12 +1127,22 @@ private async void ApplyingHyperlinkTags(string page){
 
     private async Task<string[]> ReadFavouritesAsync()
     {
-        if (File.Exists(favouritesPath))
-        {
-            return await File.ReadAllLinesAsync(favouritesPath);
+        try{
+
+            if (!File.Exists(favouritesPath))
+            {
+                File.Create(favouritesPath).Close();
+            }
+            
+            return (await File.ReadAllLinesAsync(favouritesPath)).Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
         }
 
-        return new string[0];
+        catch (Exception ex)
+        {
+            contentTextView.Buffer.Text = $"Error: {ex.Message}";
+            titleLabel.Text = string.Empty;
+            return new string[0];
+        }
     }
     
      private void BackButton_Clicked(object sender, EventArgs e)
@@ -1210,22 +1231,33 @@ private async void ApplyingHyperlinkTags(string page){
 
     private async Task<string[]> ReadHistoryAsync()
     {
-        if (File.Exists(historyPath))
+
+        try{
+
+            if (!File.Exists(historyPath))
+            {
+                File.Create(historyPath).Close();
+                File.WriteAllText(historyPath, "https://www.hw.ac.uk");
+            }
+            
+            return (await File.ReadAllLinesAsync(historyPath)).Where(line => !string.IsNullOrWhiteSpace(line)).Reverse().ToArray();
+        }
+
+        catch (Exception ex)
         {
-            historyText = await File.ReadAllLinesAsync(historyPath);
-            Array.Reverse(historyText);
+            contentTextView.Buffer.Text = $"Error: {ex.Message}";
+            titleLabel.Text = string.Empty;
+            return new string[0];
         }
-        
-        else{
-            File.Create(historyPath).Close();
-            historyText = new string[0];
-        }
-        return historyText;
     }
 
     private async Task<string[]> ReadBulkDownloadAsync()
     {
-        downloadLines = await File.ReadAllLinesAsync(bulkDownloadPath);
+        if (File.Exists(bulkDownloadPath))
+        {
+            downloadLines = (await File.ReadAllLinesAsync(bulkDownloadPath)).Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
+        }
+
         return downloadLines;
     }
 
@@ -1417,7 +1449,7 @@ private async void ApplyingHyperlinkTags(string page){
         try{
             if (!File.Exists(homePath))
             {
-                File.Create(favouritesPath).Close();
+                File.Create(homePath).Close();
                 File.WriteAllText(homePath, "https://www.hw.ac.uk");
             }
             
