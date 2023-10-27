@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using Gdk;
 
 public class WebBrowserApp : Gtk.Window
+
 {
     private Entry addressEntry;
     private Button navigateButton;
@@ -834,22 +835,6 @@ public class WebBrowserApp : Gtk.Window
         }
         }
 
-    private async void AddButton_Clicked(object sender, EventArgs e){
-        favourites = await File.ReadAllLinesAsync(favouritesPath);
-
-        if (!string.IsNullOrWhiteSpace(favouritesEntry.Text) && Uri.IsWellFormedUriString(favouritesEntry.Text, UriKind.Absolute)){
-            
-            if (favourites.Any(f => f == favouritesEntry.Text))
-            {
-                ShowMessage("This URL already exists in favorites.");
-                return;
-            }
-        
-        File.AppendAllText(favouritesPath, favouritesEntry.Text+"\n");
-        }
-
-        }
-
     private async Task<bool> Validation(string url){
         try
         {
@@ -902,7 +887,6 @@ private async void ApplyingHyperlinkTags(string page){
                 contentTextView.Buffer.ApplyTag(hyperlinkTag, contentTextView.Buffer.GetIterAtOffset(startOffset), contentTextView.Buffer.GetIterAtOffset(endOffset));
                 startOffset = endOffset + 1;
             }
-
 }
 
     private async void FavouritesButton_Clicked(object sender, EventArgs e)
