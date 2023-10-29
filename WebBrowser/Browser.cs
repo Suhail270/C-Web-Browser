@@ -10,6 +10,7 @@ using Gdk;
 public class WebBrowserApp : Gtk.Window
 
 {
+    // Initializing UI
     private Entry addressEntry;
     private Button navigateButton;
     private Button homeButton;
@@ -100,6 +101,8 @@ public class WebBrowserApp : Gtk.Window
     private int statusCode;
     public WebBrowserApp() : base("F20SC - CW1")
     {
+        // Adding and aligning UI to the window
+
         SetDefaultSize(900, 700);
         SetPosition(WindowPosition.Center);
 
@@ -141,6 +144,8 @@ public class WebBrowserApp : Gtk.Window
         profileButton = new Button("Profile");
         bulkDownloadButton = new Button("Bulk Download");
         editProfileButton = new Button("Edit Profile");
+
+        // Adding event handlers to the buttons
         
         historyButton.Clicked += HistoryButton_ClickedAsync;
         navigateButton.Clicked += NavigateButton_Clicked;
@@ -285,8 +290,12 @@ public class WebBrowserApp : Gtk.Window
         
         mainVBox.PackStart(buttonsGrid, false, false, 0);
 
+        // Adding keyboard shortcuts
+
         EnterKeyClicked(addressEntry, NavigateButton_Clicked, "nav");
         EnterKeyClicked(bulkDownloadEntry, DownloadButton_Clicked, "bulkDownload");
+
+        // Adding keyboard shortcuts
 
         this.KeyPressEvent += MainWindow_KeyPressEvent;
 
@@ -298,40 +307,56 @@ public class WebBrowserApp : Gtk.Window
     }
     private void MainWindow_KeyPressEvent(object o, KeyPressEventArgs args)
     {
+        // Control + r shortcut to reload page
+        
         if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.r))
         {
             ReloadButton_Clicked(null, null);
         }
+
+        // Control + h shortcut to go to home page
 
         else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.h))
         {
             HomeButton_Clicked(null, null);
         }
 
+        // Control + Shift + h to go to history page
+
         else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.H))
         {
             HistoryButton_ClickedAsync(null, null);
         }
+
+        // Control + f to go to favourites page
 
         else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.f))
         {
             FavouritesButton_Clicked(null, null);
         }
 
+        // Control + d to go to bulk downlaod page
+
         else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.d))
         {
             BulkDownloadButton_Clicked(null, null);
         }
+
+        // Control + z to go to back
 
         else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.z))
         {
             BackButton_Clicked(null, null);
         }
 
+        // Control + x to go forward
+
         else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.x))
         {
             ForwardButton_Clicked(null, null);
         }
+
+        // Control + p to go to profiles page
 
         else if (args.Event.State.HasFlag(ModifierType.ControlMask) && (args.Event.Key == Gdk.Key.p))
         {
@@ -346,12 +371,14 @@ public class WebBrowserApp : Gtk.Window
     {
         entry.KeyPressEvent += (o, args) =>
         {
-            if (args.Event.KeyValue == 65293)
+            if (args.Event.KeyValue == 65293) // 65293 is the keyboard value for the enter key.
             {
                 eventHandler(o, EventArgs.Empty);
             }
         };
     }
+
+    // Method to hide all buttons and entry bars
     private async void HideButtons(){
         isFavoritesPage = false;
         clearHistoryButton.Visible = false;
@@ -388,6 +415,7 @@ public class WebBrowserApp : Gtk.Window
         {
             File.Create(profilePath).Close();
         }
+        // LINQ operation to remove empty lines from the file
         profileText = (await File.ReadAllLinesAsync(profilePath)).Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
         return profileText;
     }
@@ -406,14 +434,21 @@ public class WebBrowserApp : Gtk.Window
     }
 
     else{
-        int num_profiles = profileText.Length/4;
+        
+        // Each profile has 4 fields. So when we divide the total number of lines by 4, we get the number of profiles.
+
+        int num_profiles = profileText.Length/4; 
 
         listStore.Clear();
+
+        // Adding each profile's name field to the list store.
 
         for(int i = 0; i<profileText.Length; i+=4){
             listStore.AppendValues(profileText[i]);
         }
     }
+
+    // Initializing the dropdown menu with the list store.
 
     comboBox.Model = listStore;
     comboBox.Visible = true;
@@ -461,6 +496,8 @@ public class WebBrowserApp : Gtk.Window
             }
             else
             {
+                // Adds the profile to the list store and the profile file if all fields are filled.
+
                     if (profileText.Count() == 0)
                     {
                         File.AppendAllText(profilePath, nameEntry.Text+"\n");
@@ -500,6 +537,8 @@ public class WebBrowserApp : Gtk.Window
                     idEntry.Editable = false;
                     emailEntry.Editable = false;
                     phoneEntry.Editable = false;
+
+                    // Updating the drop down menu with the new profile.
 
                     comboBox.Model = listStore;
 
@@ -686,8 +725,12 @@ public class WebBrowserApp : Gtk.Window
         if (comboBox.GetActiveIter(out iter))
 
         {
+            // Getting the active profile from the drop down menu.
+
             string activeText = (string)listStore.GetValue(iter, 0);
             int selectedIndex = Array.IndexOf(profileText, activeText);
+
+            // To ensure no operation takes place when nothing is selcted
 
             while(string.IsNullOrWhiteSpace(activeText)){
 
@@ -696,6 +739,9 @@ public class WebBrowserApp : Gtk.Window
             editIndex = Array.IndexOf(profileText, activeText);
 
             try{
+
+                // Displaying the profile details in the entry bars based on the name selected from the drop-down menu.
+
                 nameEntry.Text = profileText[selectedIndex];
                 idEntry.Text = profileText[selectedIndex+1];
                 emailEntry.Text = profileText[selectedIndex+2];
@@ -729,6 +775,9 @@ public class WebBrowserApp : Gtk.Window
     }
 
     private async void DownloadButton_Clicked(object sender, EventArgs e){
+
+        // Removing the event handler to prevent multiple downloads.
+
         downloadOkButton.Clicked -= downloadButtonClicked;
         if (bulkDownloadEntry.Text == string.Empty)
         {
@@ -738,6 +787,7 @@ public class WebBrowserApp : Gtk.Window
         if (!File.Exists(bulkDownloadPath))
         {
             ShowMessage("File does not exist. Please ensure that you have entered the right path.");
+            return;
         }
         else
         {
@@ -771,6 +821,7 @@ public class WebBrowserApp : Gtk.Window
     }
     private async void BulkDownloadButton_Clicked(object sender, EventArgs e)
 {
+    HideButtons();
     titleLabel.Text = "Bulk Download";
     bulkDownloadPath = string.Empty;
     contentTextView.Buffer.Text = string.Empty;
@@ -835,6 +886,7 @@ public class WebBrowserApp : Gtk.Window
         }
         }
 
+    // Method to authenticate a URL and returns a boolean representing whether it is valid or not.
     private async Task<bool> Validation(string url){
         try
         {
@@ -852,6 +904,8 @@ public class WebBrowserApp : Gtk.Window
             return false;
         }
     }
+
+// Method to apply hyperlinks to all lines in the text buffer.
 private async void ApplyingHyperlinkTags(string page){
         
         if(page=="favourites"){
@@ -870,6 +924,8 @@ private async void ApplyingHyperlinkTags(string page){
         }
             contentTextView.Buffer.Text = favouritesText;
 
+            // It searches for text tags with the name "hyperlink" in the text buffer’s (contentTextView) tag table. 
+
             var hyperlinkTag = contentTextView.Buffer.TagTable.Lookup("hyperlink");
 
             if (hyperlinkTag == null)
@@ -877,8 +933,14 @@ private async void ApplyingHyperlinkTags(string page){
                 hyperlinkTag = new TextTag("hyperlink");
             }
 
+            // If it doesn't find one, it creates a new TextTag with the name "hyperlink" and underlines it.
+
             hyperlinkTag.Underline = Pango.Underline.Single;
+            
             contentTextView.Buffer.TagTable.Add(hyperlinkTag);
+
+            // Next, it iterates over the lines in the favourites/history data, specifying start and end offsets for each line and adding 
+            // it to the text buffer’s tag table.
 
             int startOffset = 0;
             foreach (var line in favourites)
@@ -915,6 +977,7 @@ private async void ApplyingHyperlinkTags(string page){
 
             addOkButton.Clicked += async (okSender, okArgs) =>
             {
+                bool validURL = await Validation(favouritesEntry.Text);
 
                 if (string.IsNullOrWhiteSpace(favouritesEntry.Text)){
                     ShowMessage("Please enter the URL.");
@@ -924,7 +987,7 @@ private async void ApplyingHyperlinkTags(string page){
                     ShowMessage("Please enter the title for this URL.");
                 }
 
-                else if (!Uri.IsWellFormedUriString(favouritesEntry.Text, UriKind.Absolute)){
+                else if (!validURL){
                     
                     ShowMessage("Invalid URL.");
                     favouritesEntry.Text = string.Empty;
@@ -932,7 +995,7 @@ private async void ApplyingHyperlinkTags(string page){
                 }
                 
                 else{
-                    if (favourites.Any(f => f == favouritesEntry.Text))
+                    if (favourites.Any(f => f == favouritesEntry.Text)) //LINQ operation to check if the URL already exists in favourites.
                     {
                         ShowMessage("This URL already exists in favorites.");
                         return;
@@ -1058,6 +1121,12 @@ private async void ApplyingHyperlinkTags(string page){
                 if (args.Event.Type == Gdk.EventType.ButtonPress && args.Event.Button == 1)
                 {
                     TextIter iter;
+
+                // In the event that the user clicks the left mouse button (Event Code – 1), I use a TextIter to get
+                // the location (X & Y) of the click and look through the text buffer’s table whether there exist any links marked
+                // with the hyperlink tag at this location (marked by startOffset and endOffset in the ApplyingHyperlinkTags()
+                // function).
+
                     if (contentTextView.GetIterAtLocation(out iter, (int)args.Event.X, (int)args.Event.Y))
                     {
                         TextTag[] tags = iter.Tags;
@@ -1067,6 +1136,7 @@ private async void ApplyingHyperlinkTags(string page){
                             {
                                 int start = iter.Offset;
                                 int end = iter.Offset;
+
 
                                 while (start >= 0 && contentTextView.Buffer.GetIterAtOffset(start).HasTag(tag))
                                 {
@@ -1080,6 +1150,9 @@ private async void ApplyingHyperlinkTags(string page){
 
                                 selectedText = contentTextView.Buffer.GetText(contentTextView.Buffer.GetIterAtOffset(start + 1), contentTextView.Buffer.GetIterAtOffset(end), false);
                                 navigateText = "";
+
+                                // The URL is extracted from the selected text by looking for the first colon (:) 
+                                // and then extracting the text after it.
                                 
                                 for(int i = 0; i<selectedText.Length; i++){
                                     if(selectedText[i]==':'){
@@ -1094,7 +1167,7 @@ private async void ApplyingHyperlinkTags(string page){
                                     }
                                 } 
                                 if(editMode==false){
-                                DisplayWebContent(navigateText, "nav");
+                                    DisplayWebContent(navigateText, "nav");
                                 }
                             }
                         }
@@ -1118,6 +1191,8 @@ private async void ApplyingHyperlinkTags(string page){
                 File.Create(favouritesPath).Close();
             }
             
+            // LINQ operation to remove empty lines from the file.
+
             return (await File.ReadAllLinesAsync(favouritesPath)).Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
         }
 
@@ -1167,6 +1242,12 @@ private async void ApplyingHyperlinkTags(string page){
                 
                 contentTextView.ButtonPressEvent += (s, args) =>
             {
+                // In the event that the user clicks the left mouse button (Event Code – 1), I use a TextIter to get the 
+                // location (X & Y) of the click and look through the text buffer’s table whether there exist any links marked with 
+                // the hyperlink tag at this location (marked by startOffset and endOffset in the ApplyingHyperlinkTags() function). 
+                // Once that is done, the URL from the selected line is retrieved and sent to the navigation feature 
+                // (DisplayWebContent()) which redirects the user to their selected URL.
+
                 if (args.Event.Type == Gdk.EventType.ButtonPress && args.Event.Button == 1)
                 {
                     TextIter iter;
@@ -1224,6 +1305,8 @@ private async void ApplyingHyperlinkTags(string page){
                 File.WriteAllText(historyPath, "https://www.hw.ac.uk\n");
             }
             
+            // LINQ operation to remove empty lines from the file.
+
             return (await File.ReadAllLinesAsync(historyPath)).Where(line => !string.IsNullOrWhiteSpace(line)).Reverse().ToArray();
         }
 
@@ -1239,12 +1322,15 @@ private async void ApplyingHyperlinkTags(string page){
     {
         if (File.Exists(bulkDownloadPath))
         {
+            // LINQ operation to remove empty lines from the file.
+
             downloadLines = (await File.ReadAllLinesAsync(bulkDownloadPath)).Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
         }
 
         return downloadLines;
     }
 
+    // Method to display a message in a dialog box.
     private void ShowMessage(string message)
     {
         GLib.Idle.Add(() =>
@@ -1462,7 +1548,7 @@ private async void ApplyingHyperlinkTags(string page){
     {
         try
         {
-            string titlePattern = @"<title\b[^>]*>(.*?)</title>";
+            string titlePattern = @"<title\b[^>]*>(.*?)</title>"; // regex
             var match = Regex.Match(htmlContent, titlePattern, RegexOptions.IgnoreCase);
 
             if (match.Success)
