@@ -1221,7 +1221,7 @@ private async void ApplyingHyperlinkTags(string page){
             if (!File.Exists(historyPath))
             {
                 File.Create(historyPath).Close();
-                File.WriteAllText(historyPath, "https://www.hw.ac.uk");
+                File.WriteAllText(historyPath, "https://www.hw.ac.uk\n");
             }
             
             return (await File.ReadAllLinesAsync(historyPath)).Where(line => !string.IsNullOrWhiteSpace(line)).Reverse().ToArray();
